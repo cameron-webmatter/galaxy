@@ -43,9 +43,10 @@ type Style struct {
 }
 
 type Import struct {
-	Path      string
-	Alias     string
-	IsDefault bool
+	Path        string
+	Alias       string
+	IsDefault   bool
+	IsComponent bool
 }
 
 var (
@@ -115,7 +116,8 @@ func parseImports(frontmatter string) []Import {
 	lines := strings.Split(frontmatter, "\n")
 
 	for _, line := range lines {
-		if strings.HasPrefix(strings.TrimSpace(line), "import") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "import") {
 			matches := importRegex.FindStringSubmatch(line)
 			if matches != nil {
 				imp := Import{
@@ -125,6 +127,11 @@ func parseImports(frontmatter string) []Import {
 				if matches[1] != "" {
 					imp.Alias = matches[1]
 				}
+
+				if strings.HasSuffix(imp.Path, ".gxc") || strings.Contains(imp.Path, "/components/") {
+					imp.IsComponent = true
+				}
+
 				imports = append(imports, imp)
 			}
 		}

@@ -3,7 +3,6 @@ package compiler
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -14,17 +13,23 @@ import (
 )
 
 type ComponentCompiler struct {
-	BaseDir string
-	Cache   map[string]*parser.Component
-	Bundler *assets.Bundler
+	BaseDir  string
+	Cache    map[string]*parser.Component
+	Bundler  *assets.Bundler
+	Resolver *ComponentResolver
 }
 
 func NewComponentCompiler(baseDir string) *ComponentCompiler {
 	return &ComponentCompiler{
-		BaseDir: baseDir,
-		Cache:   make(map[string]*parser.Component),
-		Bundler: assets.NewBundler(".tmp"),
+		BaseDir:  baseDir,
+		Cache:    make(map[string]*parser.Component),
+		Bundler:  assets.NewBundler(".tmp"),
+		Resolver: NewComponentResolver(baseDir, []string{"components"}),
 	}
+}
+
+func (c *ComponentCompiler) SetResolver(resolver *ComponentResolver) {
+	c.Resolver = resolver
 }
 
 func (c *ComponentCompiler) Compile(filePath string, props map[string]interface{}, slots map[string]string) (string, error) {
@@ -96,7 +101,10 @@ func (c *ComponentCompiler) ProcessComponentTags(template string, ctx *executor.
 			return match
 		}
 
-		componentPath := filepath.Join(c.BaseDir, "components", componentName+".gxc")
+		componentPath, err := c.Resolver.Resolve(componentName)
+		if err != nil {
+			return fmt.Sprintf("<!-- Component resolution error: %v -->", err)
+		}
 
 		props := c.parseAttributes(attrs, ctx)
 
@@ -120,7 +128,10 @@ func (c *ComponentCompiler) ProcessComponentTags(template string, ctx *executor.
 		componentName := matches[1]
 		attrs := matches[2]
 
-		componentPath := filepath.Join(c.BaseDir, "components", componentName+".gxc")
+		componentPath, err := c.Resolver.Resolve(componentName)
+		if err != nil {
+			return fmt.Sprintf("<!-- Component resolution error: %v -->", err)
+		}
 
 		props := c.parseAttributes(attrs, ctx)
 

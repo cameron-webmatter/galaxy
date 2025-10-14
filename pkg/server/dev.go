@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/gastro/gastro/internal/assets"
+	"github.com/gastro/gastro/pkg/compiler"
 	"github.com/gastro/gastro/pkg/executor"
 	"github.com/gastro/gastro/pkg/parser"
 	"github.com/gastro/gastro/pkg/router"
@@ -19,15 +20,18 @@ type DevServer struct {
 	PublicDir string
 	Port      int
 	Bundler   *assets.Bundler
+	Compiler  *compiler.ComponentCompiler
 }
 
 func NewDevServer(pagesDir, publicDir string, port int) *DevServer {
+	baseDir := filepath.Dir(pagesDir)
 	return &DevServer{
 		Router:    router.NewRouter(pagesDir),
 		PagesDir:  pagesDir,
 		PublicDir: publicDir,
 		Port:      port,
 		Bundler:   assets.NewBundler(".tmp"),
+		Compiler:  compiler.NewComponentCompiler(baseDir),
 	}
 }
 
@@ -75,6 +79,19 @@ func (s *DevServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	resolver := s.Compiler.Resolver
+	resolver.SetCurrentFile(route.FilePath)
+
+	imports := make([]compiler.Import, len(comp.Imports))
+	for i, imp := range comp.Imports {
+		imports[i] = compiler.Import{
+			Path:        imp.Path,
+			Alias:       imp.Alias,
+			IsComponent: imp.IsComponent,
+		}
+	}
+	resolver.ParseImports(imports)
+
 	ctx := executor.NewContext()
 	for k, v := range params {
 		ctx.Set(k, v)
@@ -87,8 +104,10 @@ func (s *DevServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	processedTemplate := s.Compiler.ProcessComponentTags(comp.Template, ctx)
+
 	engine := template.NewEngine(ctx)
-	rendered, err := engine.Render(comp.Template, nil)
+	rendered, err := engine.Render(processedTemplate, nil)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Render error: %v", err), http.StatusInternalServerError)
 		return

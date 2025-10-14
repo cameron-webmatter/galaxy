@@ -75,6 +75,19 @@ func (b *SSGBuilder) buildStaticRoute(route *router.Route) error {
 		return err
 	}
 
+	resolver := b.Compiler.Resolver
+	resolver.SetCurrentFile(route.FilePath)
+
+	imports := make([]compiler.Import, len(comp.Imports))
+	for i, imp := range comp.Imports {
+		imports[i] = compiler.Import{
+			Path:        imp.Path,
+			Alias:       imp.Alias,
+			IsComponent: imp.IsComponent,
+		}
+	}
+	resolver.ParseImports(imports)
+
 	ctx := executor.NewContext()
 	if comp.Frontmatter != "" {
 		if err := ctx.Execute(comp.Frontmatter); err != nil {
