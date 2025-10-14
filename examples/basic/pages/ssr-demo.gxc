@@ -1,0 +1,22 @@
+---
+var title = "SSR Demo"
+var serverTime = "Server rendered at request time"
+---
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{title}</title>
+</head>
+<body>
+    <h1>{title}</h1>
+    
+    <div gastro:if={Request}>
+        <h2>Request Information</h2>
+        <p>Path: {Request.Path()}</p>
+        <p>Method: {Request.Method()}</p>
+        <p>URL: {Request.URL()}</p>
+    </div>
+
+    <p>{serverTime}</p>
+</body>
+</html>

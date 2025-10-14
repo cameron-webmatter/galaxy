@@ -11,6 +11,7 @@ import (
 	"github.com/gastro/gastro/pkg/executor"
 	"github.com/gastro/gastro/pkg/parser"
 	"github.com/gastro/gastro/pkg/router"
+	"github.com/gastro/gastro/pkg/ssr"
 	"github.com/gastro/gastro/pkg/template"
 )
 
@@ -93,6 +94,10 @@ func (s *DevServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 	resolver.ParseImports(imports)
 
 	ctx := executor.NewContext()
+
+	reqCtx := ssr.NewRequestContext(r, params)
+	ctx.SetRequest(reqCtx)
+
 	for k, v := range params {
 		ctx.Set(k, v)
 	}

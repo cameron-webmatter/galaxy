@@ -1,0 +1,11 @@
+[data-gxc-6643e2] body { 
+    font-family: system-ui;
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+[data-gxc-6643e2] h1 {  color: #2563eb; }
+[data-gxc-6643e2] nav {  margin-top: 2rem; }
+[data-gxc-6643e2] a {  color: #0ea5e9; }
+

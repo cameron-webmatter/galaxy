@@ -1,0 +1,33 @@
+---
+var title = "Blog Post"
+---
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{title}</title>
+</head>
+<body>
+    <h1>{title}</h1>
+    
+    <div gastro:if={Request}>
+        <h2>Catch-all Route</h2>
+        <p>Slug: <strong>{slug}</strong></p>
+        <p>Path: {Request.Path()}</p>
+        <p>This catches /blog/*, /blog/*/*, etc.</p>
+    </div>
+
+    <a href="/">← Home</a>
+</body>
+</html>
+
+<style scoped>
+body {
+    font-family: system-ui;
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+h1 { color: #2563eb; }
+strong { color: #10b981; }
+</style>

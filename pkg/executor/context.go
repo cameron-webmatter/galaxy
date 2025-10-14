@@ -14,6 +14,7 @@ type Context struct {
 	Variables map[string]interface{}
 	Props     map[string]interface{}
 	Slots     map[string]string
+	Request   interface{}
 }
 
 func NewContext() *Context {
@@ -21,6 +22,7 @@ func NewContext() *Context {
 		Variables: make(map[string]interface{}),
 		Props:     make(map[string]interface{}),
 		Slots:     make(map[string]string),
+		Request:   nil,
 	}
 }
 
@@ -268,6 +270,15 @@ func (c *Context) Set(name string, value interface{}) {
 
 func (c *Context) SetProp(name string, value interface{}) {
 	c.Props[name] = value
+}
+
+func (c *Context) SetRequest(req interface{}) {
+	c.Request = req
+	c.Variables["Request"] = req
+}
+
+func (c *Context) GetRequest() (interface{}, bool) {
+	return c.Request, c.Request != nil
 }
 
 func (c *Context) GetProp(name string) (interface{}, bool) {

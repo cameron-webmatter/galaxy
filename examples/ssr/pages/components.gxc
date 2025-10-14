@@ -1,0 +1,35 @@
+---
+var title = "Component Example"
+var userName = "John Doe"
+var userEmail = "john@example.com"
+---
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{title}</title>
+</head>
+<body>
+    <h1>{title}</h1>
+    
+    <UserCard name={userName} email={userEmail}>
+        <p>Auto-imported from /components!</p>
+    </UserCard>
+
+    <div gastro:if={Request}>
+        <p><small>Rendered for: {Request.Path()}</small></p>
+    </div>
+
+    <a href="/">← Home</a>
+</body>
+</html>
+
+<style scoped>
+body {
+    font-family: system-ui;
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+h1 { color: #2563eb; }
+</style>

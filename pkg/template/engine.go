@@ -59,10 +59,10 @@ func (e *Engine) renderExpressions(template string) string {
 			return fmt.Sprintf("%v", val)
 		}
 
-		parts := strings.Split(expr, ".")
-		if len(parts) > 1 {
-			if val, ok := e.ctx.Get(parts[0]); ok {
-				return fmt.Sprintf("%v", val)
+		if strings.Contains(expr, ".") {
+			result, ok := e.evaluateExpression(expr)
+			if ok {
+				return result
 			}
 		}
 
@@ -220,4 +220,39 @@ func ParseAttributes(attrString string) map[string]interface{} {
 	}
 
 	return attrs
+}
+
+func (e *Engine) evaluateExpression(expr string) (string, bool) {
+	parts := strings.Split(expr, ".")
+	if len(parts) < 2 {
+		return "", false
+	}
+
+	varName := parts[0]
+	val, ok := e.ctx.Get(varName)
+	if !ok {
+		return "", false
+	}
+
+	methodCall := parts[1]
+	if strings.HasSuffix(methodCall, "()") {
+		methodName := strings.TrimSuffix(methodCall, "()")
+
+		if reqCtx, ok := val.(interface {
+			Path() string
+			Method() string
+			URL() string
+		}); ok {
+			switch methodName {
+			case "Path":
+				return reqCtx.Path(), true
+			case "Method":
+				return reqCtx.Method(), true
+			case "URL":
+				return reqCtx.URL(), true
+			}
+		}
+	}
+
+	return "", false
 }
