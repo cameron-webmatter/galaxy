@@ -1,0 +1,188 @@
+package router
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+)
+
+type RouteType int
+
+const (
+	RouteStatic RouteType = iota
+	RouteDynamic
+	RouteCatchAll
+)
+
+type Route struct {
+	Pattern    string
+	FilePath   string
+	Type       RouteType
+	ParamNames []string
+	Priority   int
+	Regex      *regexp.Regexp
+}
+
+type Router struct {
+	Routes   []*Route
+	PagesDir string
+}
+
+func NewRouter(pagesDir string) *Router {
+	return &Router{
+		Routes:   make([]*Route, 0),
+		PagesDir: pagesDir,
+	}
+}
+
+func (r *Router) Discover() error {
+	return filepath.Walk(r.PagesDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		if !strings.HasSuffix(path, ".gxc") {
+			return nil
+		}
+
+		relPath, err := filepath.Rel(r.PagesDir, path)
+		if err != nil {
+			return err
+		}
+
+		route := r.createRoute(relPath, path)
+		r.Routes = append(r.Routes, route)
+
+		return nil
+	})
+}
+
+func (r *Router) createRoute(relPath, fullPath string) *Route {
+	route := &Route{
+		FilePath: fullPath,
+	}
+
+	pattern := strings.TrimSuffix(relPath, ".gxc")
+
+	if strings.HasSuffix(pattern, "/index") {
+		pattern = strings.TrimSuffix(pattern, "/index")
+	}
+
+	if pattern == "index" {
+		pattern = ""
+	}
+
+	if pattern == "" {
+		pattern = "/"
+	} else {
+		pattern = "/" + filepath.ToSlash(pattern)
+	}
+
+	route.Pattern = pattern
+	route.Type = RouteStatic
+	route.Priority = 100
+
+	catchAllRegex := regexp.MustCompile(`\[\.\.\.(\w+)\]`)
+	if catchAllRegex.MatchString(pattern) {
+		route.Type = RouteCatchAll
+		route.Priority = 10
+		matches := catchAllRegex.FindAllStringSubmatch(pattern, -1)
+		for _, match := range matches {
+			route.ParamNames = append(route.ParamNames, match[1])
+		}
+		regexPattern := catchAllRegex.ReplaceAllString(pattern, `(.*)`)
+		regexPattern = "^" + regexPattern + "$"
+		route.Regex = regexp.MustCompile(regexPattern)
+		return route
+	}
+
+	dynamicRegex := regexp.MustCompile(`\[(\w+)\]`)
+	if dynamicRegex.MatchString(pattern) {
+		route.Type = RouteDynamic
+		route.Priority = 50
+		matches := dynamicRegex.FindAllStringSubmatch(pattern, -1)
+		for _, match := range matches {
+			route.ParamNames = append(route.ParamNames, match[1])
+		}
+		regexPattern := dynamicRegex.ReplaceAllString(pattern, `([^/]+)`)
+		regexPattern = "^" + regexPattern + "$"
+		route.Regex = regexp.MustCompile(regexPattern)
+	}
+
+	return route
+}
+
+func (r *Router) Sort() {
+	sort.Slice(r.Routes, func(i, j int) bool {
+		if r.Routes[i].Priority != r.Routes[j].Priority {
+			return r.Routes[i].Priority > r.Routes[j].Priority
+		}
+		return r.Routes[i].Pattern < r.Routes[j].Pattern
+	})
+}
+
+func (r *Router) Match(path string) (*Route, map[string]string) {
+	for _, route := range r.Routes {
+		if params := r.matchRoute(route, path); params != nil {
+			return route, params
+		}
+	}
+	return nil, nil
+}
+
+func (r *Router) matchRoute(route *Route, path string) map[string]string {
+	if route.Type == RouteStatic {
+		if route.Pattern == path {
+			return make(map[string]string)
+		}
+		return nil
+	}
+
+	if route.Regex == nil {
+		return nil
+	}
+
+	matches := route.Regex.FindStringSubmatch(path)
+	if matches == nil {
+		return nil
+	}
+
+	params := make(map[string]string)
+	for i, name := range route.ParamNames {
+		if i+1 < len(matches) {
+			params[name] = matches[i+1]
+		}
+	}
+
+	return params
+}
+
+func (r *Router) String() string {
+	var sb strings.Builder
+	sb.WriteString("=== Router ===\n")
+	sb.WriteString(fmt.Sprintf("Pages Dir: %s\n", r.PagesDir))
+	sb.WriteString(fmt.Sprintf("Routes: %d\n\n", len(r.Routes)))
+
+	for _, route := range r.Routes {
+		typeStr := "static"
+		if route.Type == RouteDynamic {
+			typeStr = "dynamic"
+		} else if route.Type == RouteCatchAll {
+			typeStr = "catch-all"
+		}
+
+		sb.WriteString(fmt.Sprintf("  %s [%s] (priority: %d)\n", route.Pattern, typeStr, route.Priority))
+		if len(route.ParamNames) > 0 {
+			sb.WriteString(fmt.Sprintf("    params: %v\n", route.ParamNames))
+		}
+	}
+
+	return sb.String()
+}

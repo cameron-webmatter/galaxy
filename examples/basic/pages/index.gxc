@@ -1,0 +1,50 @@
+---
+var title = "Welcome to Gastro"
+var description = "A Go-powered web framework"
+var features = []string{"Fast", "Type-safe", "Go runtime"}
+var count = 3
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+</head>
+<body>
+    <header>
+        <h1>{title}</h1>
+        <p>{description}</p>
+    </header>
+
+    <main>
+        <section>
+            <h2>Features</h2>
+            <ul>
+                <li gastro:for={feature in features}>{feature}</li>
+            </ul>
+        </section>
+
+        <div gastro:if={count}>
+            <p>We have {count} amazing features!</p>
+        </div>
+    </main>
+
+    <footer>
+        <p>Built with Gastro</p>
+    </footer>
+</body>
+</html>
+
+<style scoped>
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+h1 {
+    color: #2563eb;
+}
+</style>

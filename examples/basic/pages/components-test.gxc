@@ -1,0 +1,19 @@
+---
+import compiler "github.com/gastro/gastro/pkg/compiler"
+
+var cardTitle = "My Card"
+var cardDesc = "This is a card component"
+---
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Component Test</title>
+</head>
+<body>
+    <h1>Component Composition Test</h1>
+    
+    <Card title={cardTitle} description={cardDesc}>
+        <p>This is slot content!</p>
+    </Card>
+</body>
+</html>

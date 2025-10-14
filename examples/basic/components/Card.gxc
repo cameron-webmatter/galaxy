@@ -1,0 +1,23 @@
+---
+var title string
+var description string
+---
+<div class="card">
+  <h3>{title}</h3>
+  <p>{description}</p>
+  <slot />
+</div>
+
+<style scoped>
+.card {
+  border: 1px solid #ddd;
+  padding: 1rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+.card h3 {
+  margin-top: 0;
+  color: #2563eb;
+}
+</style>

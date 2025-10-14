@@ -1,0 +1,68 @@
+{
+  "name": "gxc-language",
+  "displayName": "GXC Language Support",
+  "description": "Syntax highlighting and language support for .gxc files",
+  "version": "0.1.0",
+  "publisher": "gastro",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:gxc"
+  ],
+  "main": "./client/out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "gxc",
+        "aliases": [
+          "GXC",
+          "gxc"
+        ],
+        "extensions": [
+          ".gxc"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "gxc",
+        "scopeName": "source.gxc",
+        "path": "./syntaxes/gxc.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "GXC",
+      "properties": {
+        "gxc.lsp.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable GXC language server"
+        },
+        "gxc.lsp.serverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to gastro lsp-server binary"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./client",
+    "watch": "tsc -watch -p ./client"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.75.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^8.1.0"
+  }
+}

@@ -1,0 +1,195 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "GXC",
+  "scopeName": "source.gxc",
+  "patterns": [
+    { "include": "#frontmatter" },
+    { "include": "#script" },
+    { "include": "#style" },
+    { "include": "#template" }
+  ],
+  "repository": {
+    "frontmatter": {
+      "begin": "^---$",
+      "end": "^---$",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.frontmatter.gxc" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.frontmatter.gxc" }
+      },
+      "name": "meta.frontmatter.gxc",
+      "contentName": "source.go.embedded.gxc",
+      "patterns": [
+        {
+          "match": "\\b(var|import|package|type|struct|func|if|else|for|range|return|const)\\b",
+          "name": "keyword.control.go"
+        },
+        {
+          "match": "\\b(string|int|int64|float64|bool|byte|rune|\\[\\]\\w+|map\\[\\w+\\]\\w+)\\b",
+          "name": "storage.type.go"
+        },
+        {
+          "match": "\\b[A-Z]\\w*\\b",
+          "name": "entity.name.type.go"
+        },
+        {
+          "match": "\\b[a-z_]\\w*\\b(?=\\s*:?=)",
+          "name": "variable.other.assignment.go"
+        },
+        {
+          "begin": "\"",
+          "end": "\"",
+          "name": "string.quoted.double.go",
+          "patterns": [
+            { "match": "\\\\.", "name": "constant.character.escape.go" }
+          ]
+        },
+        {
+          "begin": "`",
+          "end": "`",
+          "name": "string.quoted.raw.go"
+        },
+        {
+          "match": "\\b\\d+(\\.\\d+)?\\b",
+          "name": "constant.numeric.go"
+        },
+        {
+          "match": "\\b(true|false|nil)\\b",
+          "name": "constant.language.go"
+        },
+        {
+          "match": "//.*$",
+          "name": "comment.line.double-slash.go"
+        }
+      ]
+    },
+    "script": {
+      "begin": "(<)(script)(?:\\s+([^>]*))?(>)",
+      "end": "(</)(script)(>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html" },
+        "3": { "patterns": [{ "include": "#tag-attributes" }] },
+        "4": { "name": "punctuation.definition.tag.end.html" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html" },
+        "3": { "name": "punctuation.definition.tag.end.html" }
+      },
+      "contentName": "source.js.embedded.gxc",
+      "patterns": [
+        { "include": "source.js" }
+      ]
+    },
+    "style": {
+      "begin": "(<)(style)(?:\\s+([^>]*))?(>)",
+      "end": "(</)(style)(>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html" },
+        "3": { "patterns": [{ "include": "#tag-attributes" }] },
+        "4": { "name": "punctuation.definition.tag.end.html" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html" },
+        "3": { "name": "punctuation.definition.tag.end.html" }
+      },
+      "contentName": "source.css.embedded.gxc",
+      "patterns": [
+        { "include": "source.css" }
+      ]
+    },
+    "template": {
+      "patterns": [
+        { "include": "#interpolation" },
+        { "include": "#gastro-directive" },
+        { "include": "#html-tag" },
+        { "include": "#html-comment" }
+      ]
+    },
+    "interpolation": {
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.interpolation.begin.gxc" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.interpolation.end.gxc" }
+      },
+      "name": "meta.interpolation.gxc",
+      "contentName": "source.go.expression.embedded.gxc",
+      "patterns": [
+        {
+          "match": "\\b[a-z_]\\w*\\b",
+          "name": "variable.other.go"
+        },
+        {
+          "match": "\\b\\d+(\\.\\d+)?\\b",
+          "name": "constant.numeric.go"
+        },
+        {
+          "match": "\\+|-|\\*|/|%|==|!=|<|>|<=|>=|&&|\\|\\||!",
+          "name": "keyword.operator.go"
+        }
+      ]
+    },
+    "gastro-directive": {
+      "match": "\\b(gastro:(if|for|else))\\b",
+      "name": "entity.other.attribute-name.gastro.gxc"
+    },
+    "html-tag": {
+      "begin": "(<)([a-zA-Z][a-zA-Z0-9-]*)",
+      "end": "(/>)|(>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.end.html" },
+        "2": { "name": "punctuation.definition.tag.end.html" }
+      },
+      "patterns": [
+        { "include": "#tag-attributes" },
+        { "include": "#gastro-directive" }
+      ]
+    },
+    "tag-attributes": {
+      "patterns": [
+        {
+          "match": "\\b([a-zA-Z-]+)\\s*=\\s*",
+          "captures": {
+            "1": { "name": "entity.other.attribute-name.html" }
+          }
+        },
+        {
+          "begin": "\"",
+          "end": "\"",
+          "name": "string.quoted.double.html",
+          "patterns": [
+            { "include": "#interpolation" }
+          ]
+        },
+        {
+          "begin": "'",
+          "end": "'",
+          "name": "string.quoted.single.html"
+        },
+        {
+          "begin": "\\{",
+          "end": "\\}",
+          "patterns": [
+            { "include": "#interpolation" }
+          ]
+        }
+      ]
+    },
+    "html-comment": {
+      "begin": "<!--",
+      "end": "-->",
+      "name": "comment.block.html"
+    }
+  }
+}
