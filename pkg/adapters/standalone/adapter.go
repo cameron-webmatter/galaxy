@@ -225,6 +225,17 @@ func (a *StandaloneAdapter) copyProjectFiles(cfg *adapters.BuildConfig) error {
 		if err := os.MkdirAll(componentsOut, 0755); err != nil {
 			return err
 		}
+
+		filepath.Walk(componentsPath, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() {
+				return err
+			}
+			relPath, _ := filepath.Rel(componentsPath, path)
+			destPath := filepath.Join(componentsOut, relPath)
+			os.MkdirAll(filepath.Dir(destPath), 0755)
+			data, _ := os.ReadFile(path)
+			return os.WriteFile(destPath, data, 0644)
+		})
 	}
 
 	return filepath.Walk(cfg.PagesDir, func(path string, info os.FileInfo, err error) error {
@@ -319,6 +330,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/galaxy/galaxy/pkg/compiler"
 	"github.com/galaxy/galaxy/pkg/endpoints"
@@ -340,6 +352,7 @@ import (
 var (
 	rt       *router.Router
 	comp     *compiler.ComponentCompiler
+	baseDir  string
 	pagesDir = "pages"
 	routeMap = map[string]*routeInfo{
 		{{range .Routes}}
@@ -364,7 +377,11 @@ type routeInfo struct {
 }
 
 func main() {
-	baseDir, _ := os.Getwd()
+	exePath, err := os.Executable()
+	if err != nil {
+		log.Fatal(err)
+	}
+	baseDir = filepath.Dir(exePath)
 	comp = compiler.NewComponentCompiler(baseDir)
 
 	http.HandleFunc("/", handleRequest)
@@ -467,7 +484,8 @@ func handleEndpoint(route *routeInfo, mwCtx *middleware.Context) {
 }
 
 func handlePage(route *routeInfo, mwCtx *middleware.Context) {
-	content, err := os.ReadFile(route.FilePath)
+	filePath := filepath.Join(baseDir, route.FilePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		http.Error(mwCtx.Response, err.Error(), http.StatusInternalServerError)
 		return
@@ -480,7 +498,7 @@ func handlePage(route *routeInfo, mwCtx *middleware.Context) {
 	}
 
 	resolver := comp.Resolver
-	resolver.SetCurrentFile(route.FilePath)
+	resolver.SetCurrentFile(filePath)
 
 	imports := make([]compiler.Import, len(parsed.Imports))
 	for i, imp := range parsed.Imports {
@@ -509,6 +527,7 @@ func handlePage(route *routeInfo, mwCtx *middleware.Context) {
 		}
 	}
 
+	comp.CollectedStyles = nil
 	processedTemplate := comp.ProcessComponentTags(parsed.Template, ctx)
 
 	engine := template.NewEngine(ctx)
@@ -516,6 +535,16 @@ func handlePage(route *routeInfo, mwCtx *middleware.Context) {
 	if err != nil {
 		http.Error(mwCtx.Response, fmt.Sprintf("Render error: %v", err), http.StatusInternalServerError)
 		return
+	}
+
+	allStyles := append(parsed.Styles, comp.CollectedStyles...)
+	if len(allStyles) > 0 {
+		var styleContent string
+		for _, style := range allStyles {
+			styleContent += style.Content + "\n"
+		}
+		styleTag := "<style>" + styleContent + "</style>"
+		rendered = strings.Replace(rendered, "</head>", styleTag+"\n</head>", 1)
 	}
 
 	mwCtx.Response.Header().Set("Content-Type", "text/html; charset=utf-8")

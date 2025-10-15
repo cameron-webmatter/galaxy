@@ -44,7 +44,9 @@ func (c *ComponentCompiler) Compile(filePath string, props map[string]interface{
 		return "", err
 	}
 
-	c.CollectedStyles = append(c.CollectedStyles, comp.Styles...)
+	copiedStyles := make([]parser.Style, len(comp.Styles))
+	copy(copiedStyles, comp.Styles)
+	c.CollectedStyles = append(c.CollectedStyles, copiedStyles...)
 
 	ctx := executor.NewContext()
 	for k, v := range props {
