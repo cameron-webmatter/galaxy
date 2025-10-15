@@ -232,7 +232,48 @@ galaxy build
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md)
+### Development Setup
+
+1. **Clone the repository**
+```bash
+git clone https://github.com/galaxy/galaxy
+cd galaxy
+```
+
+2. **Install dependencies**
+```bash
+go mod download
+```
+
+3. **Install watchexec** (for hot reloading)
+```bash
+brew install watchexec  # macOS
+# or
+cargo install watchexec-cli  # Cross-platform
+```
+
+4. **Start development with hot reload**
+```bash
+# Terminal 1 - watches for changes and rebuilds
+make watch
+
+# Terminal 2 - test your changes
+cd examples/basic
+galaxy dev
+```
+
+The `make watch` command automatically rebuilds and installs the `galaxy` CLI to your `$GOBIN` whenever you modify any `.go` files in `pkg/`, `cmd/`, or `internal/`.
+
+### Other Commands
+
+```bash
+make install    # Install galaxy CLI
+make build      # Build binary to ./galaxy
+make test       # Run tests
+make clean      # Clean build artifacts
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for more details
 
 ## License
 
