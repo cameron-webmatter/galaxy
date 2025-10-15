@@ -9,6 +9,7 @@ import (
 
 	"github.com/galaxy/galaxy/internal/assets"
 	"github.com/galaxy/galaxy/pkg/compiler"
+	"github.com/galaxy/galaxy/pkg/endpoints"
 	"github.com/galaxy/galaxy/pkg/executor"
 	"github.com/galaxy/galaxy/pkg/middleware"
 	"github.com/galaxy/galaxy/pkg/parser"
@@ -18,25 +19,27 @@ import (
 )
 
 type DevServer struct {
-	Router    *router.Router
-	PagesDir  string
-	PublicDir string
-	Port      int
-	Bundler   *assets.Bundler
-	Compiler  *compiler.ComponentCompiler
-	Verbose   bool
+	Router           *router.Router
+	PagesDir         string
+	PublicDir        string
+	Port             int
+	Bundler          *assets.Bundler
+	Compiler         *compiler.ComponentCompiler
+	EndpointCompiler *endpoints.EndpointCompiler
+	Verbose          bool
 }
 
 func NewDevServer(pagesDir, publicDir string, port int, verbose bool) *DevServer {
 	baseDir := filepath.Dir(pagesDir)
 	return &DevServer{
-		Router:    router.NewRouter(pagesDir),
-		PagesDir:  pagesDir,
-		PublicDir: publicDir,
-		Port:      port,
-		Bundler:   assets.NewBundler(".tmp"),
-		Compiler:  compiler.NewComponentCompiler(baseDir),
-		Verbose:   verbose,
+		Router:           router.NewRouter(pagesDir),
+		PagesDir:         pagesDir,
+		PublicDir:        publicDir,
+		Port:             port,
+		Bundler:          assets.NewBundler(".tmp"),
+		Compiler:         compiler.NewComponentCompiler(baseDir),
+		EndpointCompiler: endpoints.NewCompiler(baseDir, ".tmp/endpoints"),
+		Verbose:          verbose,
 	}
 }
 
@@ -147,7 +150,15 @@ func (s *DevServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *DevServer) handleEndpoint(route *router.Route, mwCtx *middleware.Context, params map[string]string) {
-	http.Error(mwCtx.Response, "Endpoint support coming soon", http.StatusNotImplemented)
+	endpoint, err := s.EndpointCompiler.Load(route.FilePath)
+	if err != nil {
+		http.Error(mwCtx.Response, fmt.Sprintf("Load endpoint: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if err := endpoints.HandleEndpoint(endpoint, mwCtx.Response, mwCtx.Request, params, mwCtx.Locals); err != nil {
+		http.Error(mwCtx.Response, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (s *DevServer) handlePage(route *router.Route, mwCtx *middleware.Context, params map[string]string) {
