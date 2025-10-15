@@ -1,0 +1,80 @@
+package cli
+
+import (
+	"fmt"
+	"path/filepath"
+
+	"github.com/gastro/gastro/pkg/prompts"
+	"github.com/gastro/gastro/pkg/templates"
+	"github.com/spf13/cobra"
+)
+
+var createCmd = &cobra.Command{
+	Use:   "create [project-name]",
+	Short: "Create a new Gastro project",
+	Long:  `Create a new Gastro project with interactive setup`,
+	Args:  cobra.MaximumNArgs(1),
+	RunE:  runCreate,
+}
+
+func init() {
+	rootCmd.AddCommand(createCmd)
+}
+
+func runCreate(cmd *cobra.Command, args []string) error {
+	defaultName := "my-gastro-project"
+	if len(args) > 0 {
+		defaultName = args[0]
+	}
+
+	fmt.Println("🚀 Welcome to Gastro!")
+	fmt.Println("Let's create your new project")
+
+	config, err := prompts.AskProjectDetails(defaultName)
+	if err != nil {
+		return err
+	}
+
+	projectPath := filepath.Join(".", config.Name)
+
+	fmt.Printf("\n✨ Creating project in %s...\n", projectPath)
+
+	gen, err := templates.NewGenerator(config.Template, config.Name)
+	if err != nil {
+		return err
+	}
+
+	if err := gen.Generate(projectPath); err != nil {
+		return fmt.Errorf("failed to generate project: %w", err)
+	}
+
+	fmt.Println("✓ Project files created")
+
+	if config.InitGit {
+		fmt.Println("Initializing git repository...")
+		if err := templates.InitGit(projectPath); err != nil {
+			fmt.Printf("⚠ Failed to initialize git: %v\n", err)
+		} else {
+			fmt.Println("✓ Git initialized")
+		}
+	}
+
+	if config.InstallDeps {
+		fmt.Printf("Installing dependencies with %s...\n", config.PackageManager)
+		if err := templates.InstallDependencies(projectPath, config.PackageManager); err != nil {
+			fmt.Printf("⚠ Failed to install dependencies: %v\n", err)
+		} else {
+			fmt.Println("✓ Dependencies installed")
+		}
+	}
+
+	fmt.Println("\n✅ Project created successfully!")
+	fmt.Printf("\nNext steps:\n")
+	fmt.Printf("  cd %s\n", config.Name)
+	if !config.InstallDeps {
+		fmt.Printf("  %s install\n", config.PackageManager)
+	}
+	fmt.Printf("  gastro dev\n")
+
+	return nil
+}

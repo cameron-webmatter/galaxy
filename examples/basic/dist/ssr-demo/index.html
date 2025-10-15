@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SSR Demo</title>
+</head>
+<body>
+    <h1>SSR Demo</h1>
+    
+    <div gastro:if={Request}>
+        <h2>Request Information</h2>
+        <p>Path: {Request.Path()}</p>
+        <p>Method: {Request.Method()}</p>
+        <p>URL: {Request.URL()}</p>
+    </div>
+
+    <p>Server rendered at request time</p>
+</body>
+</html>

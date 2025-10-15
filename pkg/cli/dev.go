@@ -1,0 +1,176 @@
+package cli
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"os/signal"
+	"path/filepath"
+	"runtime"
+	"syscall"
+
+	"github.com/fsnotify/fsnotify"
+	"github.com/gastro/gastro/pkg/server"
+	"github.com/spf13/cobra"
+)
+
+var (
+	devPort int
+	devHost string
+	devOpen bool
+)
+
+var devCmd = &cobra.Command{
+	Use:   "dev",
+	Short: "Start the development server",
+	Long:  `Start the development server with hot reload`,
+	RunE:  runDev,
+}
+
+func init() {
+	rootCmd.AddCommand(devCmd)
+	devCmd.Flags().IntVar(&devPort, "port", 4322, "port to run server on")
+	devCmd.Flags().StringVar(&devHost, "host", "localhost", "host to bind to")
+	devCmd.Flags().BoolVar(&devOpen, "open", false, "open browser on start")
+}
+
+func runDev(cmd *cobra.Command, args []string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	if rootDir != "" {
+		cwd = rootDir
+	}
+
+	pagesDir := filepath.Join(cwd, "pages")
+	publicDir := filepath.Join(cwd, "public")
+
+	if _, err := os.Stat(pagesDir); os.IsNotExist(err) {
+		return fmt.Errorf("pages directory not found: %s", pagesDir)
+	}
+
+	srv := server.NewDevServer(pagesDir, publicDir, devPort)
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+
+	if err := watcher.Add(pagesDir); err != nil {
+		return err
+	}
+	if err := addRecursive(watcher, pagesDir); err != nil {
+		return err
+	}
+
+	componentsDir := filepath.Join(cwd, "components")
+	if _, err := os.Stat(componentsDir); err == nil {
+		if err := watcher.Add(componentsDir); err != nil {
+			return err
+		}
+		if err := addRecursive(watcher, componentsDir); err != nil {
+			return err
+		}
+	}
+
+	go func() {
+		for {
+			select {
+			case event := <-watcher.Events:
+				if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Remove) != 0 {
+					if !verbose && !silent {
+						fmt.Printf("🔄 Change detected: %s\n", filepath.Base(event.Name))
+					}
+				}
+			case err := <-watcher.Errors:
+				if !silent {
+					fmt.Printf("⚠ Watcher error: %v\n", err)
+				}
+			}
+		}
+	}()
+
+	go handleInput(srv)
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		fmt.Println("\n👋 Shutting down...")
+		os.Exit(0)
+	}()
+
+	if devOpen {
+		go openBrowser(fmt.Sprintf("http://%s:%d", devHost, devPort))
+	}
+
+	fmt.Println("\n⚡ Hotkeys:")
+	fmt.Println("  o + enter  →  Open browser")
+	fmt.Println("  r + enter  →  Restart server")
+	fmt.Println("  c + enter  →  Clear console")
+	fmt.Println("  q + enter  →  Quit")
+
+	return srv.Start()
+}
+
+func addRecursive(watcher *fsnotify.Watcher, dir string) error {
+	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return watcher.Add(path)
+		}
+		return nil
+	})
+}
+
+func handleInput(srv *server.DevServer) {
+	buf := make([]byte, 1)
+	for {
+		os.Stdin.Read(buf)
+		switch buf[0] {
+		case 'o':
+			openBrowser(fmt.Sprintf("http://localhost:%d", srv.Port))
+		case 'r':
+			fmt.Println("🔄 Restart requested (not implemented)")
+		case 'c':
+			clearConsole()
+		case 'q':
+			fmt.Println("\n👋 Shutting down...")
+			os.Exit(0)
+		}
+	}
+}
+
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "linux":
+		cmd = exec.Command("xdg-open", url)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	}
+	if cmd != nil {
+		cmd.Start()
+	}
+}
+
+func clearConsole() {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin", "linux":
+		cmd = exec.Command("clear")
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "cls")
+	}
+	if cmd != nil {
+		cmd.Stdout = os.Stdout
+		cmd.Run()
+	}
+}

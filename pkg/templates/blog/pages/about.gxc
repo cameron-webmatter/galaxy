@@ -1,0 +1,19 @@
+---
+title: "About"
+---
+
+<Layout title={title}>
+	<main>
+		<h1>About Me</h1>
+		<p>This is my blog built with Gastro, a Go-powered web framework.</p>
+	</main>
+</Layout>
+
+<style>
+	main {
+		max-width: 800px;
+		margin: 0 auto;
+		padding: 2rem;
+		font-family: system-ui, sans-serif;
+	}
+</style>

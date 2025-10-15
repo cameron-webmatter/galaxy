@@ -1,0 +1,11 @@
+# {{.ProjectName}}
+
+Documentation site built with Gastro
+
+## Commands
+
+```bash
+gastro dev      # Start dev server
+gastro build    # Build for production
+gastro preview  # Preview build
+```

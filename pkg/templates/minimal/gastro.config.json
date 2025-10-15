@@ -1,0 +1,9 @@
+{
+  "site": "",
+  "base": "/",
+  "outDir": "./dist",
+  "server": {
+    "port": 4322,
+    "host": "localhost"
+  }
+}
