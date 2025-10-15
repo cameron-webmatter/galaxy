@@ -1,0 +1,38 @@
+package src
+
+import (
+	"log"
+	"time"
+
+	"github.com/galaxy/galaxy/pkg/middleware"
+)
+
+func LoggingMiddleware(ctx *middleware.Context, next func() error) error {
+	start := time.Now()
+	log.Printf("Request: %s %s", ctx.Request.Method, ctx.Request.URL.Path)
+	
+	err := next()
+	
+	log.Printf("Completed in %v", time.Since(start))
+	return err
+}
+
+func TimestampMiddleware(ctx *middleware.Context, next func() error) error {
+	ctx.Set("timestamp", time.Now().Format(time.RFC3339))
+	return next()
+}
+
+func ServerInfoMiddleware(ctx *middleware.Context, next func() error) error {
+	ctx.Set("serverName", "Galaxy SSR")
+	ctx.Set("version", "1.0.0")
+	return next()
+}
+
+// Export Sequence to chain multiple middleware
+func Sequence() []middleware.Middleware {
+	return middleware.Sequence(
+		LoggingMiddleware,
+		TimestampMiddleware,
+		ServerInfoMiddleware,
+	)
+}

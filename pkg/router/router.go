@@ -16,6 +16,7 @@ const (
 	RouteStatic RouteType = iota
 	RouteDynamic
 	RouteCatchAll
+	RouteEndpoint
 )
 
 type Route struct {
@@ -25,6 +26,7 @@ type Route struct {
 	ParamNames []string
 	Priority   int
 	Regex      *regexp.Regexp
+	IsEndpoint bool
 }
 
 type Router struct {
@@ -49,7 +51,9 @@ func (r *Router) createRoute(relPath, fullPath string) *Route {
 		FilePath: fullPath,
 	}
 
-	pattern := strings.TrimSuffix(relPath, ".gxc")
+	pattern := relPath
+	pattern = strings.TrimSuffix(pattern, ".gxc")
+	pattern = strings.TrimSuffix(pattern, ".go")
 
 	if strings.HasSuffix(pattern, "/index") {
 		pattern = strings.TrimSuffix(pattern, "/index")
@@ -166,7 +170,10 @@ func (r *Router) discover() error {
 			return nil
 		}
 
-		if !strings.HasSuffix(path, ".gxc") {
+		isGxc := strings.HasSuffix(path, ".gxc")
+		isGoEndpoint := strings.HasSuffix(path, ".go")
+
+		if !isGxc && !isGoEndpoint {
 			return nil
 		}
 
@@ -176,6 +183,10 @@ func (r *Router) discover() error {
 		}
 
 		route := r.createRoute(relPath, path)
+		if isGoEndpoint {
+			route.IsEndpoint = true
+			route.Type = RouteEndpoint
+		}
 		r.Routes = append(r.Routes, route)
 
 		return nil

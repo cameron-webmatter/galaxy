@@ -10,6 +10,7 @@ import (
 	"github.com/galaxy/galaxy/internal/assets"
 	"github.com/galaxy/galaxy/pkg/compiler"
 	"github.com/galaxy/galaxy/pkg/executor"
+	"github.com/galaxy/galaxy/pkg/middleware"
 	"github.com/galaxy/galaxy/pkg/parser"
 	"github.com/galaxy/galaxy/pkg/router"
 	"github.com/galaxy/galaxy/pkg/ssr"
@@ -134,15 +135,31 @@ func (s *DevServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	mwCtx := middleware.NewContext(w, r)
+	mwCtx.Params = params
+
+	if route.IsEndpoint {
+		s.handleEndpoint(route, mwCtx, params)
+		return
+	}
+
+	s.handlePage(route, mwCtx, params)
+}
+
+func (s *DevServer) handleEndpoint(route *router.Route, mwCtx *middleware.Context, params map[string]string) {
+	http.Error(mwCtx.Response, "Endpoint support coming soon", http.StatusNotImplemented)
+}
+
+func (s *DevServer) handlePage(route *router.Route, mwCtx *middleware.Context, params map[string]string) {
 	content, err := os.ReadFile(route.FilePath)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(mwCtx.Response, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	comp, err := parser.Parse(string(content))
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Parse error: %v", err), http.StatusInternalServerError)
+		http.Error(mwCtx.Response, fmt.Sprintf("Parse error: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -161,8 +178,9 @@ func (s *DevServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 
 	ctx := executor.NewContext()
 
-	reqCtx := ssr.NewRequestContext(r, params)
+	reqCtx := ssr.NewRequestContext(mwCtx.Request, params)
 	ctx.SetRequest(reqCtx)
+	ctx.SetLocals(mwCtx.Locals)
 
 	for k, v := range params {
 		ctx.Set(k, v)
@@ -170,7 +188,7 @@ func (s *DevServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 
 	if comp.Frontmatter != "" {
 		if err := ctx.Execute(comp.Frontmatter); err != nil {
-			http.Error(w, fmt.Sprintf("Execution error: %v", err), http.StatusInternalServerError)
+			http.Error(mwCtx.Response, fmt.Sprintf("Execution error: %v", err), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -180,12 +198,12 @@ func (s *DevServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 	engine := template.NewEngine(ctx)
 	rendered, err := engine.Render(processedTemplate, nil)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Render error: %v", err), http.StatusInternalServerError)
+		http.Error(mwCtx.Response, fmt.Sprintf("Render error: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(rendered))
+	mwCtx.Response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	mwCtx.Response.Write([]byte(rendered))
 }
 
 func (s *DevServer) serveStatic(w http.ResponseWriter, r *http.Request) {

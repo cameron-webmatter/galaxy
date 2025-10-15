@@ -1,0 +1,35 @@
+---
+var title = "SSR Server Example"
+---
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{title}</title>
+</head>
+<body>
+    <h1>Galaxy SSR Server Mode</h1>
+    <p>This page is rendered on-demand using Go!</p>
+    
+    <div galaxy:if={Request}>
+        <h2>Request Info</h2>
+        <p>Path: {Request.Path()}</p>
+        <p>Method: {Request.Method()}</p>
+    </div>
+
+    <h2>Middleware Data</h2>
+    <p>Timestamp: {Locals.timestamp}</p>
+    <p>Server Name: {Locals.serverName}</p>
+</body>
+</html>
+
+<style scoped>
+body {
+    font-family: system-ui;
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+h1 { color: #2563eb; }
+h2 { color: #059669; }
+</style>

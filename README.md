@@ -8,7 +8,8 @@ A blazing-fast, Go-powered web framework inspired by Astro. Build content-focuse
 - **📦 Zero Config** - Sensible defaults, optional configuration
 - **🔥 Hot Reload** - Instant updates during development
 - **🎨 Component-Based** - Reusable `.gxc` components
-- **⚡ Static Site Generation** - Pre-render for lightning speed
+- **⚡ Three Build Modes** - Static, Server (SSR), or Hybrid
+- **🔌 Go-Powered Runtime** - Middleware & API endpoints in Go
 - **🛠️ Rich CLI** - Powerful command-line interface
 - **📱 Interactive Setup** - Guided project creation
 
@@ -66,10 +67,15 @@ galaxy dev --open             # Auto-open browser
 Build for production.
 
 ```bash
-galaxy build                  # Output to ./dist
+galaxy build                  # Uses config output type
 galaxy build --outDir ./out   # Custom output
 galaxy build --verbose        # Show details
 ```
+
+**Output depends on mode:**
+- **Static:** HTML files in `./dist/`
+- **Server:** Binary at `./dist/server/server`
+- **Hybrid:** Static HTML + binary for dynamic routes
 
 ### `galaxy preview`
 Preview production build locally.
@@ -125,13 +131,17 @@ galaxy docs
 my-project/
 ├── pages/              # Routes (file-based routing)
 │   ├── index.gxc       # / route
-│   └── about.gxc       # /about route
+│   ├── about.gxc       # /about route
+│   └── api/            # API endpoints (server/hybrid)
+│       └── hello.go    # /api/hello endpoint
+├── src/                # Server-side code (server/hybrid)
+│   └── middleware.go   # Middleware
 ├── components/         # Reusable components
 │   └── Layout.gxc
 ├── public/            # Static assets
 │   └── style.css
-├── galaxy.config.json # Configuration
-└── package.json       # NPM dependencies
+├── galaxy.config.toml # Configuration
+└── go.mod             # Go dependencies (server/hybrid)
 ```
 
 ## Component Syntax (.gxc)
@@ -160,20 +170,70 @@ title: string = "My Page"
 </script>
 ```
 
+## Build Modes
+
+Galaxy supports three output modes configured in `galaxy.config.toml`:
+
+### Static (SSG)
+Pre-render all pages at build time. No server required.
+
+```toml
+[output]
+type = "static"  # Default
+```
+
+**Output:** HTML files in `./dist/`
+
+### Server (SSR)
+Render pages on-demand with full server-side capabilities.
+
+```toml
+[output]
+type = "server"
+
+[adapter]
+name = "standalone"  # or "cloudflare", "netlify", "vercel"
+```
+
+**Output:** Single Go binary in `./dist/server/server`
+
+**Features:**
+- Request context in pages
+- Go-based middleware (`src/middleware.go`)
+- Go-based API endpoints (`pages/api/*.go`)
+
+### Hybrid (SSG + SSR)
+Mix static and dynamic pages in one project.
+
+```toml
+[output]
+type = "hybrid"
+
+[adapter]
+name = "standalone"
+```
+
+**By default:** All pages pre-rendered  
+**Opt-out:** Add `// prerender = false` to frontmatter for SSR
+
 ## Configuration
 
-`galaxy.config.json`:
+`galaxy.config.toml`:
 
-```json
-{
-  "site": "https://example.com",
-  "base": "/",
-  "outDir": "./dist",
-  "server": {
-    "port": 4322,
-    "host": "localhost"
-  }
-}
+```toml
+site = ""
+base = "/"
+outDir = "./dist"
+
+[output]
+type = "static"  # "static", "server", or "hybrid"
+
+[server]
+port = 4322
+host = "localhost"
+
+[adapter]
+name = "standalone"  # For server/hybrid modes
 ```
 
 ## Global Flags
@@ -186,11 +246,91 @@ All commands support:
 - `--help` - Show help
 - `--version` - Show version
 
+## Middleware (Server/Hybrid Mode)
+
+Create `src/middleware.go` to add middleware:
+
+**Single middleware:**
+```go
+package src
+
+import (
+    "time"
+    "github.com/galaxy/galaxy/pkg/middleware"
+)
+
+func OnRequest(ctx *middleware.Context, next func() error) error {
+    ctx.Set("timestamp", time.Now().Format(time.RFC3339))
+    return next()
+}
+```
+
+**Multiple middleware (chained):**
+```go
+package src
+
+import "github.com/galaxy/galaxy/pkg/middleware"
+
+func LoggingMiddleware(ctx *middleware.Context, next func() error) error {
+    // logging
+    return next()
+}
+
+func AuthMiddleware(ctx *middleware.Context, next func() error) error {
+    // auth
+    return next()
+}
+
+// Chain multiple middleware with Sequence
+func Sequence() []middleware.Middleware {
+    return middleware.Sequence(
+        LoggingMiddleware,
+        AuthMiddleware,
+    )
+}
+```
+
+Access in `.gxc` pages:
+
+```gxc
+<p>Timestamp: {Locals.timestamp}</p>
+<p>User: {Locals.user}</p>
+```
+
+## API Endpoints (Server/Hybrid Mode)
+
+Create Go files in `pages/api/`:
+
+```go
+// pages/api/hello.go
+package api
+
+import "github.com/galaxy/galaxy/pkg/endpoints"
+
+func GET(ctx *endpoints.Context) error {
+    return ctx.JSON(200, map[string]string{
+        "message": "Hello from Galaxy!",
+    })
+}
+
+func POST(ctx *endpoints.Context) error {
+    var body map[string]interface{}
+    if err := ctx.BindJSON(&body); err != nil {
+        return ctx.JSON(400, map[string]string{"error": "Invalid JSON"})
+    }
+    return ctx.JSON(200, body)
+}
+```
+
+**Endpoints available at:** `/api/hello`
+
 ## Examples
 
 See `examples/` directory:
-- `examples/basic` - Simple site with multiple pages
-- `examples/ssr` - Server-side rendering demo
+- `examples/basic` - Static site with multiple pages
+- `examples/ssr` - Full SSR with middleware & endpoints
+- `examples/ssr-server` - Server-only mode demo
+- `examples/hybrid` - Mixed static/dynamic pages
 
 ## Development
 
@@ -229,6 +369,14 @@ galaxy build
 - File watching for pages & components
 - Instant browser updates
 - Fast rebuilds
+
+### Server-Side Rendering (SSR)
+- On-demand page rendering
+- Request context in templates
+- Go-based middleware
+- API endpoints in Go
+- Single binary deployment
+- No Node.js required
 
 ## Contributing
 
@@ -274,6 +422,25 @@ make clean      # Clean build artifacts
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for more details
+
+## Editor Support
+
+### NeoVim
+
+Full support for `.gxc` files including syntax highlighting and LSP. See [editors/nvim/README.md](editors/nvim/README.md) for setup instructions.
+
+**Quick Setup:**
+```bash
+# Copy plugin files
+cp -r editors/nvim/* ~/.config/nvim/
+
+# Add to init.lua
+require'lspconfig'.gxc.setup{}
+```
+
+### VSCode
+
+Install the GXC extension from `editors/vscode/`.
 
 ## License
 

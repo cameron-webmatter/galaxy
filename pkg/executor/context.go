@@ -15,6 +15,7 @@ type Context struct {
 	Props     map[string]interface{}
 	Slots     map[string]string
 	Request   interface{}
+	Locals    map[string]any
 }
 
 func NewContext() *Context {
@@ -23,6 +24,7 @@ func NewContext() *Context {
 		Props:     make(map[string]interface{}),
 		Slots:     make(map[string]string),
 		Request:   nil,
+		Locals:    make(map[string]any),
 	}
 }
 
@@ -338,6 +340,15 @@ func (c *Context) SetRequest(req interface{}) {
 
 func (c *Context) GetRequest() (interface{}, bool) {
 	return c.Request, c.Request != nil
+}
+
+func (c *Context) SetLocals(locals map[string]any) {
+	c.Locals = locals
+	c.Variables["Locals"] = locals
+}
+
+func (c *Context) GetLocals() map[string]any {
+	return c.Locals
 }
 
 func (c *Context) GetProp(name string) (interface{}, bool) {

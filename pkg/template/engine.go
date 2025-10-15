@@ -746,6 +746,12 @@ func (e *Engine) evaluateExpression(expr string) (string, bool) {
 				return fmt.Sprintf("%v", propVal), true
 			}
 		}
+		if m, ok := val.(map[string]any); ok {
+			property := parts[1]
+			if propVal, ok := m[property]; ok {
+				return fmt.Sprintf("%v", propVal), true
+			}
+		}
 	}
 
 	return "", false

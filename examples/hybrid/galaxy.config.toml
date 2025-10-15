@@ -1,0 +1,13 @@
+site = ""
+base = "/"
+outDir = "./dist"
+
+[output]
+type = "hybrid"
+
+[server]
+port = 4322
+host = "localhost"
+
+[adapter]
+name = "standalone"

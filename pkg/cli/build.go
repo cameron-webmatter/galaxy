@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/galaxy/galaxy/pkg/build"
+	"github.com/galaxy/galaxy/pkg/config"
 	"github.com/spf13/cobra"
 )
 
@@ -53,8 +54,26 @@ func runBuild(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("pages directory not found: %s", pagesDir)
 	}
 
+	cfg, err := config.LoadFromDir(cwd)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	if buildOutDir != "./dist" {
+		cfg.OutDir = buildOutDir
+	}
+
+	if !filepath.IsAbs(cfg.OutDir) {
+		cfg.OutDir = filepath.Join(cwd, cfg.OutDir)
+	}
+	outDir = cfg.OutDir
+
 	if !silent {
-		fmt.Println("🔨 Building for production...")
+		outputType := cfg.Output.Type
+		if outputType == "" {
+			outputType = config.OutputStatic
+		}
+		fmt.Printf("🔨 Building for production (%s mode)...\n", outputType)
 		if verbose {
 			fmt.Printf("📁 Pages: %s\n", pagesDir)
 			fmt.Printf("📦 Public: %s\n", publicDir)
@@ -63,10 +82,23 @@ func runBuild(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 	}
 
-	builder := build.NewSSGBuilder(pagesDir, outDir, publicDir)
+	var buildErr error
 
-	if err := builder.Build(); err != nil {
-		return fmt.Errorf("build failed: %w", err)
+	if cfg.IsStatic() {
+		builder := build.NewSSGBuilder(pagesDir, outDir, publicDir)
+		buildErr = builder.Build()
+	} else if cfg.IsHybrid() {
+		builder := build.NewHybridBuilder(cfg, pagesDir, outDir, publicDir)
+		buildErr = builder.Build()
+	} else if cfg.IsSSR() {
+		builder := build.NewSSRBuilder(cfg, pagesDir, outDir, publicDir)
+		buildErr = builder.Build()
+	} else {
+		return fmt.Errorf("unsupported output type: %s", cfg.Output.Type)
+	}
+
+	if buildErr != nil {
+		return fmt.Errorf("build failed: %w", buildErr)
 	}
 
 	duration := time.Since(start)
