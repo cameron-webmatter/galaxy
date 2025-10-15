@@ -202,13 +202,40 @@ func (s *DevServer) handlePage(route *router.Route, mwCtx *middleware.Context, p
 		return
 	}
 
+	cssPath, err := s.Bundler.BundleStyles(comp, route.FilePath)
+	if err != nil {
+		http.Error(mwCtx.Response, fmt.Sprintf("Style bundle error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	jsPath, err := s.Bundler.BundleScripts(comp, route.FilePath)
+	if err != nil {
+		http.Error(mwCtx.Response, fmt.Sprintf("Script bundle error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	scopeID := ""
+	for _, style := range comp.Styles {
+		if style.Scoped {
+			scopeID = s.Bundler.GenerateScopeID(route.FilePath)
+			break
+		}
+	}
+
+	rendered = s.Bundler.InjectAssets(rendered, cssPath, jsPath, scopeID)
+
 	mwCtx.Response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	mwCtx.Response.Write([]byte(rendered))
 }
 
 func (s *DevServer) serveStatic(w http.ResponseWriter, r *http.Request) {
-	publicPath := filepath.Join(s.PublicDir, r.URL.Path)
+	tmpPath := filepath.Join(s.Bundler.OutDir, r.URL.Path)
+	if _, err := os.Stat(tmpPath); err == nil {
+		http.ServeFile(w, r, tmpPath)
+		return
+	}
 
+	publicPath := filepath.Join(s.PublicDir, r.URL.Path)
 	if _, err := os.Stat(publicPath); err == nil {
 		http.ServeFile(w, r, publicPath)
 		return
