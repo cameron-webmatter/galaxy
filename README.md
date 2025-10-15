@@ -267,20 +267,33 @@ galaxy add tailwind
 
 ### Tailwind CSS Plugin
 
-Automatically processes `@tailwind` directives during build.
+Automatically processes Tailwind CSS during build with support for both v3 and v4.
 
 **Setup:**
-1. Run `galaxy add tailwind` or manually install
-2. Add plugin to config
+1. Run `galaxy add tailwind` (choose v4 or v3)
+2. Add plugin to config (done automatically)
 3. Add directives to your CSS:
 
+**For Tailwind v4 (recommended):**
+```css
+@import "tailwindcss";
+```
+
+**For Tailwind v3:**
 ```css
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 ```
 
-The plugin will automatically process these during build.
+The plugin automatically detects which version you're using and processes accordingly.
+
+**Note:** Make sure your `tailwind.config.js` includes `.gxc` files:
+```js
+export default {
+  content: ['src/**/*.gxc'],
+}
+```
 
 ## Global Flags
 

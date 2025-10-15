@@ -49,7 +49,10 @@ func (p *TailwindPlugin) TransformCSS(css string, filePath string) (string, erro
 		return css, nil
 	}
 
-	if !strings.Contains(css, "@tailwind") {
+	hasTailwindV3 := strings.Contains(css, "@tailwind")
+	hasTailwindV4 := strings.Contains(css, `@import "tailwindcss"`) || strings.Contains(css, `@import 'tailwindcss'`)
+
+	if !hasTailwindV3 && !hasTailwindV4 {
 		return css, nil
 	}
 
@@ -61,18 +64,31 @@ func (p *TailwindPlugin) TransformCSS(css string, filePath string) (string, erro
 	}
 	defer os.Remove(tmpInput)
 
-	cmd := exec.Command("npx", "tailwindcss",
-		"-i", tmpInput,
-		"-o", tmpOutput,
-		"--config", p.configPath,
-		"--minify",
-	)
+	var cmd *exec.Cmd
+	if hasTailwindV4 {
+		cmd = exec.Command("npx", "@tailwindcss/cli",
+			"-i", tmpInput,
+			"-o", tmpOutput,
+			"--config", p.configPath,
+			"--minify",
+		)
+	} else {
+		cmd = exec.Command("npx", "tailwindcss",
+			"-i", tmpInput,
+			"-o", tmpOutput,
+			"--config", p.configPath,
+			"--minify",
+		)
+	}
 	cmd.Dir = p.setupCtx.RootDir
 
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
+		if hasTailwindV4 {
+			return "", fmt.Errorf("run @tailwindcss/cli: %w\nMake sure @tailwindcss/cli is installed: npm install -D @tailwindcss/cli\n%s", err, stderr.String())
+		}
 		return "", fmt.Errorf("run tailwindcss: %w\n%s", err, stderr.String())
 	}
 	defer os.Remove(tmpOutput)

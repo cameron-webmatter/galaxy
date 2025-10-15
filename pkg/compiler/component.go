@@ -32,6 +32,10 @@ func (c *ComponentCompiler) SetResolver(resolver *ComponentResolver) {
 	c.Resolver = resolver
 }
 
+func (c *ComponentCompiler) ClearCache() {
+	c.Cache = make(map[string]*parser.Component)
+}
+
 func (c *ComponentCompiler) Compile(filePath string, props map[string]interface{}, slots map[string]string) (string, error) {
 	comp, err := c.loadComponent(filePath)
 	if err != nil {

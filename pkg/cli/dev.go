@@ -73,23 +73,11 @@ func runDev(cmd *cobra.Command, args []string) error {
 	}
 	defer watcher.Close()
 
-	if err := watcher.Add(pagesDir); err != nil {
+	if err := watcher.Add(srcDir); err != nil {
 		return err
 	}
-	if err := addRecursive(watcher, pagesDir); err != nil {
+	if err := addRecursive(watcher, srcDir); err != nil {
 		return err
-	}
-
-	componentsDir := filepath.Join(srcDir, "components")
-	hasComponents := false
-	if _, err := os.Stat(componentsDir); err == nil {
-		hasComponents = true
-		if err := watcher.Add(componentsDir); err != nil {
-			return err
-		}
-		if err := addRecursive(watcher, componentsDir); err != nil {
-			return err
-		}
 	}
 
 	go func() {
@@ -103,23 +91,19 @@ func runDev(cmd *cobra.Command, args []string) error {
 
 					if event.Op&fsnotify.Create != 0 {
 						info, err := os.Stat(event.Name)
-						if err == nil && info.IsDir() {
-							shouldWatch := isUnderDir(event.Name, pagesDir)
-							if hasComponents {
-								shouldWatch = shouldWatch || isUnderDir(event.Name, componentsDir)
-							}
-							if shouldWatch {
-								if err := watcher.Add(event.Name); err == nil {
-									if err := addRecursive(watcher, event.Name); err != nil && !silent {
-										fmt.Printf("⚠ Failed to watch new directory: %v\n", err)
-									}
+						if err == nil && info.IsDir() && isUnderDir(event.Name, srcDir) {
+							if err := watcher.Add(event.Name); err == nil {
+								if err := addRecursive(watcher, event.Name); err != nil && !silent {
+									fmt.Printf("⚠ Failed to watch new directory: %v\n", err)
 								}
 							}
 						}
 					}
 
-					if isUnderDir(event.Name, pagesDir) && filepath.Ext(event.Name) == ".gxc" {
-						if event.Op&(fsnotify.Create|fsnotify.Remove) != 0 {
+					if filepath.Ext(event.Name) == ".gxc" && isUnderDir(event.Name, srcDir) {
+						srv.Compiler.ClearCache()
+
+						if isUnderDir(event.Name, pagesDir) && event.Op&(fsnotify.Create|fsnotify.Remove) != 0 {
 							if err := srv.ReloadRoutes(); err != nil && !silent {
 								fmt.Printf("⚠ Failed to reload routes: %v\n", err)
 							}

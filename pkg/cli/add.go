@@ -100,13 +100,30 @@ func addTailwind() error {
 		}
 	}
 
+	var version string
+	versionPrompt := &survey.Select{
+		Message: "Select Tailwind CSS version:",
+		Options: []string{"v4 (latest, recommended)", "v3 (stable)"},
+		Default: "v4 (latest, recommended)",
+	}
+	if err := survey.AskOne(versionPrompt, &version); err != nil {
+		return err
+	}
+
 	fmt.Println("Installing Tailwind CSS...")
+
+	var installPkg string
+	if version[0] == 'v' && version[1] == '4' {
+		installPkg = "@tailwindcss/cli@latest"
+	} else {
+		installPkg = "tailwindcss@^3"
+	}
 
 	var cmd *exec.Cmd
 	if pkgManager == "pnpm" {
-		cmd = exec.Command(pkgManager, "add", "-D", "tailwindcss")
+		cmd = exec.Command(pkgManager, "add", "-D", installPkg)
 	} else {
-		cmd = exec.Command(pkgManager, "install", "-D", "tailwindcss")
+		cmd = exec.Command(pkgManager, "install", "-D", installPkg)
 	}
 	cmd.Dir = cwd
 	cmd.Stdout = os.Stdout
@@ -115,19 +132,29 @@ func addTailwind() error {
 		return err
 	}
 
-	fmt.Println("Initializing Tailwind config...")
-	var initCmd *exec.Cmd
-	if pkgManager == "pnpm" || pkgManager == "yarn" || pkgManager == "bun" {
-		initCmd = exec.Command(pkgManager, "exec", "tailwindcss", "init")
+	fmt.Println("Creating Tailwind config...")
+	var configContent string
+	if version[0] == 'v' && version[1] == '4' {
+		configContent = `/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['src/**/*.gxc'],
+}
+`
 	} else {
-		initCmd = exec.Command("npx", "tailwindcss", "init")
+		configContent = `/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: ['src/**/*.gxc'],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+`
 	}
-	cmd = initCmd
-	cmd.Dir = cwd
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return err
+
+	tailwindConfigPath := filepath.Join(cwd, "tailwind.config.js")
+	if err := os.WriteFile(tailwindConfigPath, []byte(configContent), 0644); err != nil {
+		return fmt.Errorf("failed to create tailwind.config.js: %w", err)
 	}
 
 	hasPlugin := false
@@ -159,8 +186,15 @@ func addTailwind() error {
 
 	fmt.Println("\n✅ Tailwind CSS added!")
 	fmt.Println("\nNext steps:")
-	fmt.Println("  1. Configure tailwind.config.js")
-	fmt.Println("  2. Add Tailwind directives to your CSS")
+	if version[0] == 'v' && version[1] == '4' {
+		fmt.Println("  1. Add '@import \"tailwindcss\";' to your CSS file")
+		fmt.Println("  2. Link the CSS file in your Layout component")
+	} else {
+		fmt.Println("  1. Add Tailwind directives to your CSS:")
+		fmt.Println("     @tailwind base;")
+		fmt.Println("     @tailwind components;")
+		fmt.Println("     @tailwind utilities;")
+	}
 	return nil
 }
 
