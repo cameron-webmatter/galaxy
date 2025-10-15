@@ -120,9 +120,12 @@ func addTailwind() error {
 	}
 
 	var cmd *exec.Cmd
-	if pkgManager == "pnpm" {
+	switch pkgManager {
+	case "npm":
+		cmd = exec.Command(pkgManager, "install", "-D", installPkg)
+	case "pnpm", "yarn", "bun":
 		cmd = exec.Command(pkgManager, "add", "-D", installPkg)
-	} else {
+	default:
 		cmd = exec.Command(pkgManager, "install", "-D", installPkg)
 	}
 	cmd.Dir = cwd
