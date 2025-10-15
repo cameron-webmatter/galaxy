@@ -29,7 +29,7 @@ func NewHybridBuilder(cfg *config.Config, pagesDir, outDir, publicDir string) *H
 		OutDir:     outDir,
 		PublicDir:  publicDir,
 		Router:     router.NewRouter(pagesDir),
-		SSGBuilder: NewSSGBuilder(pagesDir, outDir, publicDir),
+		SSGBuilder: NewSSGBuilder(cfg, pagesDir, outDir, publicDir),
 		SSRBuilder: NewSSRBuilder(cfg, pagesDir, outDir, publicDir),
 	}
 }

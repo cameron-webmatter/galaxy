@@ -234,7 +234,53 @@ host = "localhost"
 
 [adapter]
 name = "standalone"  # For server/hybrid modes
+
+[[plugins]]
+name = "tailwindcss"
 ```
+
+## Plugins
+
+Galaxy supports an Astro-style plugin system for extending functionality.
+
+### Available Plugins
+
+- **tailwindcss** - Tailwind CSS integration with automatic processing
+- **react** - React component islands (coming soon)
+- **vue** - Vue component islands (coming soon)
+- **svelte** - Svelte component islands (coming soon)
+
+### Using Plugins
+
+Add plugins to `galaxy.config.toml`:
+
+```toml
+[[plugins]]
+name = "tailwindcss"
+```
+
+Or use the CLI:
+
+```bash
+galaxy add tailwind
+```
+
+### Tailwind CSS Plugin
+
+Automatically processes `@tailwind` directives during build.
+
+**Setup:**
+1. Run `galaxy add tailwind` or manually install
+2. Add plugin to config
+3. Add directives to your CSS:
+
+```css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+
+The plugin will automatically process these during build.
 
 ## Global Flags
 

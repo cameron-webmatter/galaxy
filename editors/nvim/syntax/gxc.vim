@@ -33,7 +33,7 @@ syn region gxcScript matchgroup=htmlTag start=+<script[^>]*>+ end=+</script>+ co
 
 syn region gxcInterpolation start=/{/ end=/}/ contained containedin=htmlString,htmlValue,htmlH1,htmlH2,htmlH3,htmlH4,htmlH5,htmlH6,htmlHead,htmlTitle,htmlBoldItalicUnderline,htmlUnderlineBold,htmlUnderlineItalicBold,htmlUnderlineBoldItalic,htmlItalicBold,htmlItalicBoldUnderline,htmlItalicUnderlineBold,htmlBoldUnderlineItalic,htmlBoldItalic,htmlBoldUnderline,htmlItalicUnderline
 
-syn match gxcDirective /galaxy:\(if\|for\|else\)/ contained
+syn match gxcDirective /galaxy:\(if\|for\|else\|elsif\)/ contained
 
 hi def link gxcGoKeyword Keyword
 hi def link gxcGoType Type

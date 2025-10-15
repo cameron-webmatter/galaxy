@@ -15,7 +15,8 @@ import (
 var templateFS embed.FS
 
 type TemplateData struct {
-	ProjectName string
+	ProjectName    string
+	PackageManager string
 }
 
 type Generator struct {
@@ -24,7 +25,7 @@ type Generator struct {
 	data         TemplateData
 }
 
-func NewGenerator(templateName string, projectName string) (*Generator, error) {
+func NewGenerator(templateName string, projectName string, packageManager string) (*Generator, error) {
 	validTemplates := map[string]bool{
 		"minimal":       true,
 		"blog":          true,
@@ -39,7 +40,7 @@ func NewGenerator(templateName string, projectName string) (*Generator, error) {
 	return &Generator{
 		templateFS:   templateFS,
 		templateName: templateName,
-		data:         TemplateData{ProjectName: projectName},
+		data:         TemplateData{ProjectName: projectName, PackageManager: packageManager},
 	}, nil
 }
 

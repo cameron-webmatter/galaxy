@@ -8,28 +8,52 @@ import (
 	"github.com/galaxy/galaxy/pkg/adapters"
 	"github.com/galaxy/galaxy/pkg/adapters/standalone"
 	"github.com/galaxy/galaxy/pkg/config"
+	"github.com/galaxy/galaxy/pkg/plugins"
+	"github.com/galaxy/galaxy/pkg/plugins/tailwind"
 	"github.com/galaxy/galaxy/pkg/router"
 )
 
 type SSRBuilder struct {
-	Config    *config.Config
-	PagesDir  string
-	OutDir    string
-	PublicDir string
-	Router    *router.Router
+	Config        *config.Config
+	PagesDir      string
+	OutDir        string
+	PublicDir     string
+	Router        *router.Router
+	PluginManager *plugins.Manager
 }
 
 func NewSSRBuilder(cfg *config.Config, pagesDir, outDir, publicDir string) *SSRBuilder {
+	pluginMgr := plugins.NewManager(cfg)
+	pluginMgr.Register(tailwind.New())
+
 	return &SSRBuilder{
-		Config:    cfg,
-		PagesDir:  pagesDir,
-		OutDir:    outDir,
-		PublicDir: publicDir,
-		Router:    router.NewRouter(pagesDir),
+		Config:        cfg,
+		PagesDir:      pagesDir,
+		OutDir:        outDir,
+		PublicDir:     publicDir,
+		Router:        router.NewRouter(pagesDir),
+		PluginManager: pluginMgr,
 	}
 }
 
 func (b *SSRBuilder) Build() error {
+	baseDir := filepath.Dir(b.PagesDir)
+	if err := b.PluginManager.Load(baseDir, b.OutDir); err != nil {
+		return fmt.Errorf("load plugins: %w", err)
+	}
+
+	buildCtx := &plugins.BuildContext{
+		Config:    b.Config,
+		RootDir:   baseDir,
+		OutDir:    b.OutDir,
+		PagesDir:  b.PagesDir,
+		PublicDir: b.PublicDir,
+	}
+
+	if err := b.PluginManager.BuildStart(buildCtx); err != nil {
+		return fmt.Errorf("plugin BuildStart: %w", err)
+	}
+
 	if err := b.Router.Discover(); err != nil {
 		return fmt.Errorf("route discovery: %w", err)
 	}
@@ -58,6 +82,10 @@ func (b *SSRBuilder) Build() error {
 
 	if err := b.compileServer(serverDir); err != nil {
 		return fmt.Errorf("compile server: %w", err)
+	}
+
+	if err := b.PluginManager.BuildEnd(buildCtx); err != nil {
+		return fmt.Errorf("plugin BuildEnd: %w", err)
 	}
 
 	return nil

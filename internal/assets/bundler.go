@@ -8,10 +8,12 @@ import (
 	"strings"
 
 	"github.com/galaxy/galaxy/pkg/parser"
+	"github.com/galaxy/galaxy/pkg/plugins"
 )
 
 type Bundler struct {
-	OutDir string
+	OutDir        string
+	PluginManager *plugins.Manager
 }
 
 func NewBundler(outDir string) *Bundler {
@@ -25,11 +27,21 @@ func (b *Bundler) BundleStyles(comp *parser.Component, pagePath string) (string,
 
 	var combined strings.Builder
 	for _, style := range comp.Styles {
+		content := style.Content
+
+		if b.PluginManager != nil {
+			transformed, err := b.PluginManager.TransformCSS(content, pagePath)
+			if err != nil {
+				return "", err
+			}
+			content = transformed
+		}
+
 		if style.Scoped {
-			scopedCSS := b.scopeCSS(style.Content, pagePath)
+			scopedCSS := b.scopeCSS(content, pagePath)
 			combined.WriteString(scopedCSS)
 		} else {
-			combined.WriteString(style.Content)
+			combined.WriteString(content)
 		}
 		combined.WriteString("\n")
 	}
@@ -59,7 +71,17 @@ func (b *Bundler) BundleScripts(comp *parser.Component, pagePath string) (string
 		if i > 0 {
 			combined.WriteString("\n")
 		}
-		combined.WriteString(script.Content)
+
+		content := script.Content
+		if b.PluginManager != nil {
+			transformed, err := b.PluginManager.TransformJS(content, pagePath)
+			if err != nil {
+				return "", err
+			}
+			content = transformed
+		}
+
+		combined.WriteString(content)
 	}
 
 	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(combined.String())))[:8]

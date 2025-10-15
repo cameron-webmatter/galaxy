@@ -18,12 +18,14 @@ const (
 )
 
 type Config struct {
-	Site    string        `toml:"site"`
-	Base    string        `toml:"base"`
-	OutDir  string        `toml:"outDir"`
-	Output  OutputConfig  `toml:"output"`
-	Server  ServerConfig  `toml:"server"`
-	Adapter AdapterConfig `toml:"adapter"`
+	Site           string         `toml:"site"`
+	Base           string         `toml:"base"`
+	OutDir         string         `toml:"outDir"`
+	PackageManager string         `toml:"packageManager"`
+	Output         OutputConfig   `toml:"output"`
+	Server         ServerConfig   `toml:"server"`
+	Adapter        AdapterConfig  `toml:"adapter"`
+	Plugins        []PluginConfig `toml:"plugins"`
 }
 
 type OutputConfig struct {
@@ -40,11 +42,17 @@ type AdapterConfig struct {
 	Config map[string]interface{} `toml:"config"`
 }
 
+type PluginConfig struct {
+	Name   string                 `toml:"name"`
+	Config map[string]interface{} `toml:"config"`
+}
+
 func DefaultConfig() *Config {
 	return &Config{
-		Site:   "",
-		Base:   "/",
-		OutDir: "./dist",
+		Site:           "",
+		Base:           "/",
+		OutDir:         "./dist",
+		PackageManager: "npm",
 		Output: OutputConfig{
 			Type: OutputStatic,
 		},

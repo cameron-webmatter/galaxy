@@ -1,6 +1,7 @@
 site = ""
 base = "/"
 outDir = "./dist"
+packageManager = "{{.PackageManager}}"
 
 [server]
 port = 4322

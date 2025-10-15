@@ -34,6 +34,16 @@ func (s *Server) getCompletions(content string, pos protocol.Position) []protoco
 			Detail: "Conditional rendering",
 		},
 		{
+			Label:  "galaxy:elsif",
+			Kind:   protocol.CompletionItemKindKeyword,
+			Detail: "Else-if conditional branch",
+		},
+		{
+			Label:  "galaxy:else",
+			Kind:   protocol.CompletionItemKindKeyword,
+			Detail: "Else conditional branch",
+		},
+		{
 			Label:  "galaxy:for",
 			Kind:   protocol.CompletionItemKindKeyword,
 			Detail: "Loop rendering",

@@ -39,7 +39,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("\n✨ Creating project in %s...\n", projectPath)
 
-	gen, err := templates.NewGenerator(config.Template, config.Name)
+	gen, err := templates.NewGenerator(config.Template, config.Name, config.PackageManager)
 	if err != nil {
 		return err
 	}

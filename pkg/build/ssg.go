@@ -8,34 +8,65 @@ import (
 
 	"github.com/galaxy/galaxy/internal/assets"
 	"github.com/galaxy/galaxy/pkg/compiler"
+	"github.com/galaxy/galaxy/pkg/config"
 	"github.com/galaxy/galaxy/pkg/executor"
 	"github.com/galaxy/galaxy/pkg/parser"
+	"github.com/galaxy/galaxy/pkg/plugins"
+	"github.com/galaxy/galaxy/pkg/plugins/tailwind"
 	"github.com/galaxy/galaxy/pkg/router"
 	"github.com/galaxy/galaxy/pkg/template"
 )
 
 type SSGBuilder struct {
-	PagesDir  string
-	OutDir    string
-	PublicDir string
-	Router    *router.Router
-	Bundler   *assets.Bundler
-	Compiler  *compiler.ComponentCompiler
+	Config        *config.Config
+	PagesDir      string
+	OutDir        string
+	PublicDir     string
+	Router        *router.Router
+	Bundler       *assets.Bundler
+	Compiler      *compiler.ComponentCompiler
+	PluginManager *plugins.Manager
 }
 
-func NewSSGBuilder(pagesDir, outDir, publicDir string) *SSGBuilder {
+func NewSSGBuilder(cfg *config.Config, pagesDir, outDir, publicDir string) *SSGBuilder {
 	baseDir := filepath.Dir(pagesDir)
+
+	pluginMgr := plugins.NewManager(cfg)
+	pluginMgr.Register(tailwind.New())
+
+	bundler := assets.NewBundler(outDir)
+	bundler.PluginManager = pluginMgr
+
 	return &SSGBuilder{
-		PagesDir:  pagesDir,
-		OutDir:    outDir,
-		PublicDir: publicDir,
-		Router:    router.NewRouter(pagesDir),
-		Bundler:   assets.NewBundler(outDir),
-		Compiler:  compiler.NewComponentCompiler(baseDir),
+		Config:        cfg,
+		PagesDir:      pagesDir,
+		OutDir:        outDir,
+		PublicDir:     publicDir,
+		Router:        router.NewRouter(pagesDir),
+		Bundler:       bundler,
+		Compiler:      compiler.NewComponentCompiler(baseDir),
+		PluginManager: pluginMgr,
 	}
 }
 
 func (b *SSGBuilder) Build() error {
+	baseDir := filepath.Dir(b.PagesDir)
+	if err := b.PluginManager.Load(baseDir, b.OutDir); err != nil {
+		return fmt.Errorf("load plugins: %w", err)
+	}
+
+	buildCtx := &plugins.BuildContext{
+		Config:    b.Config,
+		RootDir:   baseDir,
+		OutDir:    b.OutDir,
+		PagesDir:  b.PagesDir,
+		PublicDir: b.PublicDir,
+	}
+
+	if err := b.PluginManager.BuildStart(buildCtx); err != nil {
+		return fmt.Errorf("plugin BuildStart: %w", err)
+	}
+
 	if err := b.Router.Discover(); err != nil {
 		return fmt.Errorf("route discovery: %w", err)
 	}
@@ -59,6 +90,10 @@ func (b *SSGBuilder) Build() error {
 
 	if err := b.copyPublicAssets(); err != nil {
 		return fmt.Errorf("copy assets: %w", err)
+	}
+
+	if err := b.PluginManager.BuildEnd(buildCtx); err != nil {
+		return fmt.Errorf("plugin BuildEnd: %w", err)
 	}
 
 	return nil

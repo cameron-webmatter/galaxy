@@ -85,7 +85,7 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	var buildErr error
 
 	if cfg.IsStatic() {
-		builder := build.NewSSGBuilder(pagesDir, outDir, publicDir)
+		builder := build.NewSSGBuilder(cfg, pagesDir, outDir, publicDir)
 		buildErr = builder.Build()
 	} else if cfg.IsHybrid() {
 		builder := build.NewHybridBuilder(cfg, pagesDir, outDir, publicDir)

@@ -73,6 +73,10 @@ func (c *Config) Validate() error {
 		c.Base = "/"
 	}
 
+	if c.PackageManager == "" {
+		c.PackageManager = "npm"
+	}
+
 	return nil
 }
 

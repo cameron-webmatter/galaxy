@@ -137,7 +137,7 @@
       ]
     },
     "galaxy-directive": {
-      "match": "\\b(galaxy:(if|for|else))\\b",
+      "match": "\\b(galaxy:(if|for|else|elsif))\\b",
       "name": "entity.other.attribute-name.galaxy.gxc"
     },
     "html-tag": {

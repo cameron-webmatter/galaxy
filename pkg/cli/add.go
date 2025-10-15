@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/BurntSushi/toml"
+	"github.com/galaxy/galaxy/pkg/config"
 	"github.com/spf13/cobra"
 )
 
@@ -65,20 +68,93 @@ func addFramework(framework string) error {
 }
 
 func addTailwind() error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	if rootDir != "" {
+		cwd = rootDir
+	}
+
+	configPath := filepath.Join(cwd, "galaxy.config.toml")
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	pkgManager := cfg.PackageManager
+	if pkgManager == "" {
+		pkgManager = detectPackageManager(cwd)
+	}
+
+	packageJSONPath := filepath.Join(cwd, "package.json")
+	if _, err := os.Stat(packageJSONPath); os.IsNotExist(err) {
+		fmt.Println("Creating package.json...")
+		cmd := exec.Command(pkgManager, "init", "-y")
+		cmd.Dir = cwd
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to create package.json: %w", err)
+		}
+	}
+
 	fmt.Println("Installing Tailwind CSS...")
-	
-	cmd := exec.Command("npm", "install", "-D", "tailwindcss")
+
+	var cmd *exec.Cmd
+	if pkgManager == "pnpm" {
+		cmd = exec.Command(pkgManager, "add", "-D", "tailwindcss")
+	} else {
+		cmd = exec.Command(pkgManager, "install", "-D", "tailwindcss")
+	}
+	cmd.Dir = cwd
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return err
 	}
 
-	cmd = exec.Command("npx", "tailwindcss", "init")
+	fmt.Println("Initializing Tailwind config...")
+	var initCmd *exec.Cmd
+	if pkgManager == "pnpm" || pkgManager == "yarn" || pkgManager == "bun" {
+		initCmd = exec.Command(pkgManager, "exec", "tailwindcss", "init")
+	} else {
+		initCmd = exec.Command("npx", "tailwindcss", "init")
+	}
+	cmd = initCmd
+	cmd.Dir = cwd
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return err
+	}
+
+	hasPlugin := false
+	for _, p := range cfg.Plugins {
+		if p.Name == "tailwindcss" {
+			hasPlugin = true
+			break
+		}
+	}
+
+	if !hasPlugin {
+		cfg.Plugins = append(cfg.Plugins, config.PluginConfig{
+			Name:   "tailwindcss",
+			Config: make(map[string]interface{}),
+		})
+
+		f, err := os.Create(configPath)
+		if err != nil {
+			return fmt.Errorf("open config: %w", err)
+		}
+		defer f.Close()
+
+		if err := toml.NewEncoder(f).Encode(cfg); err != nil {
+			return fmt.Errorf("write config: %w", err)
+		}
+
+		fmt.Println("  ✓ Added tailwindcss plugin to galaxy.config.toml")
 	}
 
 	fmt.Println("\n✅ Tailwind CSS added!")
@@ -86,6 +162,19 @@ func addTailwind() error {
 	fmt.Println("  1. Configure tailwind.config.js")
 	fmt.Println("  2. Add Tailwind directives to your CSS")
 	return nil
+}
+
+func detectPackageManager(cwd string) string {
+	if _, err := os.Stat(filepath.Join(cwd, "pnpm-lock.yaml")); err == nil {
+		return "pnpm"
+	}
+	if _, err := os.Stat(filepath.Join(cwd, "yarn.lock")); err == nil {
+		return "yarn"
+	}
+	if _, err := os.Stat(filepath.Join(cwd, "bun.lockb")); err == nil {
+		return "bun"
+	}
+	return "npm"
 }
 
 func addSitemap() error {

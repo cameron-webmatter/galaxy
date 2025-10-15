@@ -1,13 +1,16 @@
 .PHONY: install watch build test clean
 
+VERSION := $(shell cat VERSION)
+LDFLAGS := -X github.com/galaxy/galaxy/pkg/cli.Version=$(VERSION)
+
 install:
-	go install ./cmd/galaxy
+	go install -ldflags "$(LDFLAGS)" ./cmd/galaxy
 
 watch:
-	watchexec -w pkg -w cmd -w internal -e go -- go install ./cmd/galaxy
+	watchexec -w pkg -w cmd -w internal -e go -- ./scripts/build.sh
 
 build:
-	go build -o galaxy ./cmd/galaxy
+	go build -ldflags "$(LDFLAGS)" -o galaxy ./cmd/galaxy
 
 test:
 	go test ./...
