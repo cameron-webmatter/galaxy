@@ -12,9 +12,10 @@ var posts = []map[string]string{
 		<p>Welcome to my blog built with Galaxy</p>
 
 		<div class="posts">
-			<div galaxy:for={post in posts} class="post">
-				{post.title} - {post.slug} - {post.date}
-			</div>
+			<article galaxy:for={post in posts}>
+				<h2><a href="/blog/{post.slug}">{post.title}</a></h2>
+				<time>{post.date}</time>
+			</article>
 		</div>
 	</main>
 </Layout>

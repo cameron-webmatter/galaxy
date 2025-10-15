@@ -98,6 +98,92 @@ func (e *Engine) renderSlots(template string) string {
 	})
 }
 
+func findDirectiveElement(template string, directiveName string) (tag string, attrs string, content string, start int, end int, found bool) {
+	directiveAttr := directiveName + "="
+
+	idx := strings.Index(template, directiveAttr)
+	if idx == -1 {
+		return "", "", "", 0, 0, false
+	}
+
+	openStart := strings.LastIndex(template[:idx], "<")
+	if openStart == -1 {
+		return "", "", "", 0, 0, false
+	}
+
+	openEnd := strings.Index(template[idx:], ">")
+	if openEnd == -1 {
+		return "", "", "", 0, 0, false
+	}
+	openEnd += idx
+
+	tagNameEnd := openStart + 1
+	for tagNameEnd < len(template) && template[tagNameEnd] != ' ' && template[tagNameEnd] != '>' {
+		tagNameEnd++
+	}
+	tag = template[openStart+1 : tagNameEnd]
+
+	attrs = strings.TrimSpace(template[tagNameEnd:openEnd])
+
+	depth := 1
+	pos := openEnd + 1
+	searchTag := "<" + tag
+	closeTag := "</" + tag + ">"
+
+	for pos < len(template) && depth > 0 {
+		nextOpen := strings.Index(template[pos:], searchTag)
+		nextClose := strings.Index(template[pos:], closeTag)
+
+		if nextClose == -1 {
+			return "", "", "", 0, 0, false
+		}
+
+		if nextOpen != -1 && nextOpen < nextClose {
+			if pos+nextOpen+len(searchTag) < len(template) {
+				nextChar := template[pos+nextOpen+len(searchTag)]
+				if nextChar == ' ' || nextChar == '>' {
+					depth++
+					pos += nextOpen + len(searchTag)
+					continue
+				}
+			}
+			pos += nextOpen + 1
+			continue
+		}
+
+		depth--
+		if depth == 0 {
+			content = template[openEnd+1 : pos+nextClose]
+			end = pos + nextClose + len(closeTag)
+			return tag, attrs, content, openStart, end, true
+		}
+		pos += nextClose + len(closeTag)
+	}
+
+	return "", "", "", 0, 0, false
+}
+
+func replaceAllDirectives(template string, directive string, replacer func(tag, attrs, content string) string) string {
+	result := template
+	offset := 0
+
+	for {
+		tag, attrs, content, start, end, found := findDirectiveElement(result[offset:], directive)
+		if !found {
+			break
+		}
+
+		start += offset
+		end += offset
+
+		replacement := replacer(tag, attrs, content)
+		result = result[:start] + replacement + result[end:]
+		offset = start + len(replacement)
+	}
+
+	return result
+}
+
 func (e *Engine) renderDirectives(template string) string {
 	template = e.renderIfDirective(template)
 	template = e.renderForDirective(template)
@@ -105,26 +191,31 @@ func (e *Engine) renderDirectives(template string) string {
 }
 
 func (e *Engine) renderIfDirective(template string) string {
-	ifRegex := regexp.MustCompile(`(?s)<(\w+)\s+galaxy:if=\{([^}]+)\}([^>]*)>(.*?)</(\w+)>`)
-
-	return ifRegex.ReplaceAllStringFunc(template, func(match string) string {
-		matches := ifRegex.FindStringSubmatch(match)
-		if len(matches) < 6 {
-			return match
+	return replaceAllDirectives(template, "galaxy:if", func(tag, attrs, content string) string {
+		ifStart := strings.Index(attrs, "galaxy:if={")
+		if ifStart == -1 {
+			return fmt.Sprintf("<%s %s>%s</%s>", tag, attrs, content, tag)
 		}
 
-		tagName := matches[1]
-		condition := strings.TrimSpace(matches[2])
-		attrs := matches[3]
-		content := matches[4]
-		closingTag := matches[5]
-
-		if tagName != closingTag {
-			return match
+		ifStart += len("galaxy:if={")
+		ifEnd := strings.Index(attrs[ifStart:], "}")
+		if ifEnd == -1 {
+			return fmt.Sprintf("<%s %s>%s</%s>", tag, attrs, content, tag)
 		}
+
+		condition := strings.TrimSpace(attrs[ifStart : ifStart+ifEnd])
+
+		otherAttrs := strings.TrimSpace(
+			attrs[:ifStart-len("galaxy:if={")] +
+				attrs[ifStart+ifEnd+1:],
+		)
 
 		if e.evaluateCondition(condition) {
-			return fmt.Sprintf("<%s%s>%s</%s>", tagName, attrs, content, tagName)
+			if otherAttrs != "" {
+				return fmt.Sprintf("<%s %s>%s</%s>", tag, otherAttrs, content, tag)
+			} else {
+				return fmt.Sprintf("<%s>%s</%s>", tag, content, tag)
+			}
 		}
 
 		return ""
@@ -132,27 +223,28 @@ func (e *Engine) renderIfDirective(template string) string {
 }
 
 func (e *Engine) renderForDirective(template string) string {
-	forRegex := regexp.MustCompile(`(?s)<(\w+)\s+galaxy:for=\{([^}]+)\}([^>]*)>(.*?)</(\w+)>`)
-
-	return forRegex.ReplaceAllStringFunc(template, func(match string) string {
-		matches := forRegex.FindStringSubmatch(match)
-		if len(matches) < 6 {
-			return match
+	return replaceAllDirectives(template, "galaxy:for", func(tag, attrs, content string) string {
+		forStart := strings.Index(attrs, "galaxy:for={")
+		if forStart == -1 {
+			return fmt.Sprintf("<%s %s>%s</%s>", tag, attrs, content, tag)
 		}
 
-		tagName := matches[1]
-		loopExpr := strings.TrimSpace(matches[2])
-		attrs := matches[3]
-		content := matches[4]
-		closingTag := matches[5]
-
-		if tagName != closingTag {
-			return match
+		forStart += len("galaxy:for={")
+		forEnd := strings.Index(attrs[forStart:], "}")
+		if forEnd == -1 {
+			return fmt.Sprintf("<%s %s>%s</%s>", tag, attrs, content, tag)
 		}
+
+		loopExpr := strings.TrimSpace(attrs[forStart : forStart+forEnd])
+
+		otherAttrs := strings.TrimSpace(
+			attrs[:forStart-len("galaxy:for={")] +
+				attrs[forStart+forEnd+1:],
+		)
 
 		parts := strings.Fields(loopExpr)
 		if len(parts) < 3 || parts[1] != "in" {
-			return match
+			return fmt.Sprintf("<%s %s>%s</%s>", tag, attrs, content, tag)
 		}
 
 		itemVar := parts[0]
@@ -167,7 +259,12 @@ func (e *Engine) renderForDirective(template string) string {
 					e.ctx.Set(itemVar, item)
 
 					rendered := e.renderExpressions(content)
-					result.WriteString(fmt.Sprintf("<%s%s>%s</%s>", tagName, attrs, rendered, tagName))
+
+					if otherAttrs != "" {
+						result.WriteString(fmt.Sprintf("<%s %s>%s</%s>", tag, otherAttrs, rendered, tag))
+					} else {
+						result.WriteString(fmt.Sprintf("<%s>%s</%s>", tag, rendered, tag))
+					}
 
 					if hadOld {
 						e.ctx.Set(itemVar, oldVal)
@@ -178,7 +275,7 @@ func (e *Engine) renderForDirective(template string) string {
 			}
 		}
 
-		return match
+		return fmt.Sprintf("<%s %s>%s</%s>", tag, attrs, content, tag)
 	})
 }
 
