@@ -4,6 +4,8 @@
 gastro
 lsp-server
 _assets/
+galaxy
+editors/vscode/client/out/
 
 # Markdown files except essential OSS files
 *.md
