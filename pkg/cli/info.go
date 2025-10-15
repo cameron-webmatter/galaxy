@@ -31,7 +31,7 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	fmt.Printf("System                   %s (%s)\n", runtime.GOOS, runtime.GOARCH)
 	fmt.Printf("Working Directory        %s\n", cwd)
 
-	configPath := filepath.Join(cwd, "galaxy.config.json")
+	configPath := filepath.Join(cwd, "galaxy.config.toml")
 	if _, err := os.Stat(configPath); err == nil {
 		fmt.Printf("Config                   %s\n", configPath)
 	}

@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 
 	"github.com/fsnotify/fsnotify"
@@ -15,9 +16,10 @@ import (
 )
 
 var (
-	devPort int
-	devHost string
-	devOpen bool
+	devPort    int
+	devHost    string
+	devOpen    bool
+	devVerbose bool
 )
 
 var devCmd = &cobra.Command{
@@ -32,6 +34,7 @@ func init() {
 	devCmd.Flags().IntVar(&devPort, "port", 4322, "port to run server on")
 	devCmd.Flags().StringVar(&devHost, "host", "localhost", "host to bind to")
 	devCmd.Flags().BoolVar(&devOpen, "open", false, "open browser on start")
+	devCmd.Flags().BoolVar(&devVerbose, "verbose", true, "enable request logging")
 }
 
 func runDev(cmd *cobra.Command, args []string) error {
@@ -51,7 +54,7 @@ func runDev(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("pages directory not found: %s", pagesDir)
 	}
 
-	srv := server.NewDevServer(pagesDir, publicDir, devPort)
+	srv := server.NewDevServer(pagesDir, publicDir, devPort, devVerbose)
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -67,7 +70,9 @@ func runDev(cmd *cobra.Command, args []string) error {
 	}
 
 	componentsDir := filepath.Join(cwd, "components")
+	hasComponents := false
 	if _, err := os.Stat(componentsDir); err == nil {
+		hasComponents = true
 		if err := watcher.Add(componentsDir); err != nil {
 			return err
 		}
@@ -83,6 +88,31 @@ func runDev(cmd *cobra.Command, args []string) error {
 				if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Remove) != 0 {
 					if !verbose && !silent {
 						fmt.Printf("🔄 Change detected: %s\n", filepath.Base(event.Name))
+					}
+
+					if event.Op&fsnotify.Create != 0 {
+						info, err := os.Stat(event.Name)
+						if err == nil && info.IsDir() {
+							shouldWatch := isUnderDir(event.Name, pagesDir)
+							if hasComponents {
+								shouldWatch = shouldWatch || isUnderDir(event.Name, componentsDir)
+							}
+							if shouldWatch {
+								if err := watcher.Add(event.Name); err == nil {
+									if err := addRecursive(watcher, event.Name); err != nil && !silent {
+										fmt.Printf("⚠ Failed to watch new directory: %v\n", err)
+									}
+								}
+							}
+						}
+					}
+
+					if isUnderDir(event.Name, pagesDir) && filepath.Ext(event.Name) == ".gxc" {
+						if event.Op&(fsnotify.Create|fsnotify.Remove) != 0 {
+							if err := srv.ReloadRoutes(); err != nil && !silent {
+								fmt.Printf("⚠ Failed to reload routes: %v\n", err)
+							}
+						}
 					}
 				}
 			case err := <-watcher.Errors:
@@ -173,4 +203,12 @@ func clearConsole() {
 		cmd.Stdout = os.Stdout
 		cmd.Run()
 	}
+}
+
+func isUnderDir(path, dir string) bool {
+	rel, err := filepath.Rel(dir, path)
+	if err != nil {
+		return false
+	}
+	return !strings.HasPrefix(rel, "..") && rel != "."
 }

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/galaxy/galaxy/internal/assets"
 	"github.com/galaxy/galaxy/pkg/compiler"
@@ -22,9 +23,10 @@ type DevServer struct {
 	Port      int
 	Bundler   *assets.Bundler
 	Compiler  *compiler.ComponentCompiler
+	Verbose   bool
 }
 
-func NewDevServer(pagesDir, publicDir string, port int) *DevServer {
+func NewDevServer(pagesDir, publicDir string, port int, verbose bool) *DevServer {
 	baseDir := filepath.Dir(pagesDir)
 	return &DevServer{
 		Router:    router.NewRouter(pagesDir),
@@ -33,6 +35,7 @@ func NewDevServer(pagesDir, publicDir string, port int) *DevServer {
 		Port:      port,
 		Bundler:   assets.NewBundler(".tmp"),
 		Compiler:  compiler.NewComponentCompiler(baseDir),
+		Verbose:   verbose,
 	}
 }
 
@@ -42,18 +45,81 @@ func (s *DevServer) Start() error {
 	}
 	s.Router.Sort()
 
-	http.HandleFunc("/", s.handleRequest)
+	http.HandleFunc("/", s.logRequest(s.handleRequest))
 
 	addr := fmt.Sprintf(":%d", s.Port)
 	fmt.Printf("🚀 Dev server running at http://localhost%s\n", addr)
 	fmt.Printf("📁 Pages: %s\n", s.PagesDir)
 	fmt.Printf("📦 Public: %s\n\n", s.PublicDir)
 
+	s.printRoutes()
+
+	return http.ListenAndServe(addr, nil)
+}
+
+func (s *DevServer) ReloadRoutes() error {
+	if err := s.Router.Reload(); err != nil {
+		return err
+	}
+
+	fmt.Println("\n🔄 Routes reloaded:")
+	s.printRoutes()
+
+	return nil
+}
+
+func (s *DevServer) printRoutes() {
 	for _, route := range s.Router.Routes {
 		fmt.Printf("  %s\n", route.Pattern)
 	}
+	fmt.Println()
+}
 
-	return http.ListenAndServe(addr, nil)
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+func (s *DevServer) logRequest(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rw := &responseWriter{ResponseWriter: w, statusCode: 200}
+
+		next(rw, r)
+
+		if s.Verbose {
+			duration := time.Since(start)
+			statusColor := getStatusColor(rw.statusCode)
+			methodColor := "\033[36m"
+			reset := "\033[0m"
+
+			fmt.Printf("%s%s%s %s - %s%d%s (%dms)\n",
+				methodColor, r.Method, reset,
+				r.URL.Path,
+				statusColor, rw.statusCode, reset,
+				duration.Milliseconds())
+		}
+	}
+}
+
+func getStatusColor(status int) string {
+	switch {
+	case status >= 500:
+		return "\033[31m"
+	case status >= 400:
+		return "\033[33m"
+	case status >= 300:
+		return "\033[36m"
+	case status >= 200:
+		return "\033[32m"
+	default:
+		return "\033[0m"
+	}
 }
 
 func (s *DevServer) handleRequest(w http.ResponseWriter, r *http.Request) {

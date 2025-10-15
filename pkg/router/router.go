@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 )
 
 type RouteType int
@@ -29,6 +30,7 @@ type Route struct {
 type Router struct {
 	Routes   []*Route
 	PagesDir string
+	mu       sync.RWMutex
 }
 
 func NewRouter(pagesDir string) *Router {
@@ -39,29 +41,7 @@ func NewRouter(pagesDir string) *Router {
 }
 
 func (r *Router) Discover() error {
-	return filepath.Walk(r.PagesDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if info.IsDir() {
-			return nil
-		}
-
-		if !strings.HasSuffix(path, ".gxc") {
-			return nil
-		}
-
-		relPath, err := filepath.Rel(r.PagesDir, path)
-		if err != nil {
-			return err
-		}
-
-		route := r.createRoute(relPath, path)
-		r.Routes = append(r.Routes, route)
-
-		return nil
-	})
+	return r.discover()
 }
 
 func (r *Router) createRoute(relPath, fullPath string) *Route {
@@ -120,15 +100,13 @@ func (r *Router) createRoute(relPath, fullPath string) *Route {
 }
 
 func (r *Router) Sort() {
-	sort.Slice(r.Routes, func(i, j int) bool {
-		if r.Routes[i].Priority != r.Routes[j].Priority {
-			return r.Routes[i].Priority > r.Routes[j].Priority
-		}
-		return r.Routes[i].Pattern < r.Routes[j].Pattern
-	})
+	r.sort()
 }
 
 func (r *Router) Match(path string) (*Route, map[string]string) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	for _, route := range r.Routes {
 		if params := r.matchRoute(route, path); params != nil {
 			return route, params
@@ -164,7 +142,59 @@ func (r *Router) matchRoute(route *Route, path string) map[string]string {
 	return params
 }
 
+func (r *Router) Reload() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.Routes = make([]*Route, 0)
+
+	if err := r.discover(); err != nil {
+		return err
+	}
+
+	r.sort()
+	return nil
+}
+
+func (r *Router) discover() error {
+	return filepath.Walk(r.PagesDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		if !strings.HasSuffix(path, ".gxc") {
+			return nil
+		}
+
+		relPath, err := filepath.Rel(r.PagesDir, path)
+		if err != nil {
+			return err
+		}
+
+		route := r.createRoute(relPath, path)
+		r.Routes = append(r.Routes, route)
+
+		return nil
+	})
+}
+
+func (r *Router) sort() {
+	sort.Slice(r.Routes, func(i, j int) bool {
+		if r.Routes[i].Priority != r.Routes[j].Priority {
+			return r.Routes[i].Priority > r.Routes[j].Priority
+		}
+		return r.Routes[i].Pattern < r.Routes[j].Pattern
+	})
+}
+
 func (r *Router) String() string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	var sb strings.Builder
 	sb.WriteString("=== Router ===\n")
 	sb.WriteString(fmt.Sprintf("Pages Dir: %s\n", r.PagesDir))

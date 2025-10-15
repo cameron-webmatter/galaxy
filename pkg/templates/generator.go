@@ -84,7 +84,7 @@ func (g *Generator) copyFile(srcPath, dstPath string) error {
 		return err
 	}
 
-	if strings.HasSuffix(srcPath, ".json") || strings.HasSuffix(srcPath, ".md") {
+	if strings.HasSuffix(srcPath, ".toml") || strings.HasSuffix(srcPath, ".md") {
 		tmpl, err := template.New("file").Parse(string(content))
 		if err != nil {
 			return err
