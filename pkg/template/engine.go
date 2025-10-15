@@ -252,6 +252,13 @@ func (e *Engine) evaluateExpression(expr string) (string, bool) {
 				return reqCtx.URL(), true
 			}
 		}
+	} else {
+		if m, ok := val.(map[string]interface{}); ok {
+			property := parts[1]
+			if propVal, ok := m[property]; ok {
+				return fmt.Sprintf("%v", propVal), true
+			}
+		}
 	}
 
 	return "", false

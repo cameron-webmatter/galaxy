@@ -1,5 +1,5 @@
 ---
-title: string
+var title string
 ---
 
 <!DOCTYPE html>

@@ -1,5 +1,5 @@
 ---
-title: "About"
+var title = "About"
 ---
 
 <Layout title={title}>

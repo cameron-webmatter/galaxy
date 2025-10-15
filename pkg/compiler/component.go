@@ -9,7 +9,7 @@ import (
 	"github.com/galaxy/galaxy/internal/assets"
 	"github.com/galaxy/galaxy/pkg/executor"
 	"github.com/galaxy/galaxy/pkg/parser"
-	"github.com/galaxy/galaxy/pkg/template"
+	tmpl "github.com/galaxy/galaxy/pkg/template"
 )
 
 type ComponentCompiler struct {
@@ -52,8 +52,8 @@ func (c *ComponentCompiler) Compile(filePath string, props map[string]interface{
 
 	processedTemplate := c.ProcessComponentTags(comp.Template, ctx)
 
-	engine := template.NewEngine(ctx)
-	rendered, err := engine.Render(processedTemplate, &template.RenderOptions{
+	engine := tmpl.NewEngine(ctx)
+	rendered, err := engine.Render(processedTemplate, &tmpl.RenderOptions{
 		Props: props,
 		Slots: slots,
 	})
@@ -111,7 +111,12 @@ func (c *ComponentCompiler) ProcessComponentTags(template string, ctx *executor.
 		slots := make(map[string]string)
 		trimmedContent := strings.TrimSpace(content)
 		if trimmedContent != "" {
-			slots["default"] = trimmedContent
+			slotEngine := tmpl.NewEngine(ctx)
+			renderedSlot, err := slotEngine.Render(trimmedContent, nil)
+			if err != nil {
+				return fmt.Sprintf("<!-- Error rendering slot: %v -->", err)
+			}
+			slots["default"] = renderedSlot
 		}
 
 		rendered, err := c.Compile(componentPath, props, slots)

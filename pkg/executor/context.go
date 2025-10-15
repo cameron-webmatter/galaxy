@@ -189,6 +189,65 @@ func (c *Context) evalCompositeLit(expr *ast.CompositeLit) (interface{}, error) 
 		}
 		return result, nil
 	}
+
+	if _, ok := expr.Type.(*ast.MapType); ok {
+		result := make(map[string]interface{})
+		for _, elt := range expr.Elts {
+			kvExpr, ok := elt.(*ast.KeyValueExpr)
+			if !ok {
+				return nil, fmt.Errorf("expected key-value pair in map literal")
+			}
+
+			key, err := c.evalExpr(kvExpr.Key)
+			if err != nil {
+				return nil, err
+			}
+
+			value, err := c.evalExpr(kvExpr.Value)
+			if err != nil {
+				return nil, err
+			}
+
+			keyStr, ok := key.(string)
+			if !ok {
+				return nil, fmt.Errorf("map keys must be strings")
+			}
+
+			result[keyStr] = value
+		}
+		return result, nil
+	}
+
+	if expr.Type == nil && len(expr.Elts) > 0 {
+		if _, ok := expr.Elts[0].(*ast.KeyValueExpr); ok {
+			result := make(map[string]interface{})
+			for _, elt := range expr.Elts {
+				kvExpr, ok := elt.(*ast.KeyValueExpr)
+				if !ok {
+					return nil, fmt.Errorf("expected key-value pair in map literal")
+				}
+
+				key, err := c.evalExpr(kvExpr.Key)
+				if err != nil {
+					return nil, err
+				}
+
+				value, err := c.evalExpr(kvExpr.Value)
+				if err != nil {
+					return nil, err
+				}
+
+				keyStr, ok := key.(string)
+				if !ok {
+					return nil, fmt.Errorf("map keys must be strings")
+				}
+
+				result[keyStr] = value
+			}
+			return result, nil
+		}
+	}
+
 	return nil, fmt.Errorf("unsupported composite literal")
 }
 

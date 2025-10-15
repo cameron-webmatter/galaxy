@@ -1,9 +1,9 @@
 ---
-title: "My Blog"
-posts: [
-  {title: "First Post", slug: "first-post", date: "2024-01-15"},
-  {title: "Second Post", slug: "second-post", date: "2024-01-20"},
-]
+var title = "My Blog"
+var posts = []map[string]string{
+	{"title": "First Post", "slug": "first-post", "date": "2024-01-15"},
+	{"title": "Second Post", "slug": "second-post", "date": "2024-01-20"},
+}
 ---
 
 <Layout title={title}>
@@ -12,12 +12,9 @@ posts: [
 		<p>Welcome to my blog built with Galaxy</p>
 
 		<div class="posts">
-			{posts.map(post => (
-				<article>
-					<h2><a href={`/blog/${post.slug}`}>{post.title}</a></h2>
-					<time>{post.date}</time>
-				</article>
-			))}
+			<div galaxy:for={post in posts} class="post">
+				{post.title} - {post.slug} - {post.date}
+			</div>
 		</div>
 	</main>
 </Layout>
