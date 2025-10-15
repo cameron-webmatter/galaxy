@@ -65,7 +65,7 @@ func runDev(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("pages directory not found: %s", pagesDir)
 	}
 
-	srv := server.NewDevServer(pagesDir, publicDir, devPort, devVerbose)
+	srv := server.NewDevServer(cwd, pagesDir, publicDir, devPort, devVerbose)
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {

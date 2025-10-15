@@ -55,11 +55,15 @@ func (r *Router) createRoute(relPath, fullPath string) *Route {
 	pattern = strings.TrimSuffix(pattern, ".gxc")
 	pattern = strings.TrimSuffix(pattern, ".go")
 
+	if strings.HasSuffix(pattern, "/route") {
+		pattern = strings.TrimSuffix(pattern, "/route")
+	}
+
 	if strings.HasSuffix(pattern, "/index") {
 		pattern = strings.TrimSuffix(pattern, "/index")
 	}
 
-	if pattern == "index" {
+	if pattern == "index" || pattern == "route" {
 		pattern = ""
 	}
 
@@ -120,7 +124,7 @@ func (r *Router) Match(path string) (*Route, map[string]string) {
 }
 
 func (r *Router) matchRoute(route *Route, path string) map[string]string {
-	if route.Type == RouteStatic {
+	if route.Type == RouteStatic || route.Type == RouteEndpoint {
 		if route.Pattern == path {
 			return make(map[string]string)
 		}

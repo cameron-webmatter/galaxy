@@ -20,6 +20,7 @@ import (
 
 type DevServer struct {
 	Router           *router.Router
+	RootDir          string
 	PagesDir         string
 	PublicDir        string
 	Port             int
@@ -29,16 +30,17 @@ type DevServer struct {
 	Verbose          bool
 }
 
-func NewDevServer(pagesDir, publicDir string, port int, verbose bool) *DevServer {
-	baseDir := filepath.Dir(pagesDir)
+func NewDevServer(rootDir, pagesDir, publicDir string, port int, verbose bool) *DevServer {
+	srcDir := filepath.Dir(pagesDir)
 	return &DevServer{
 		Router:           router.NewRouter(pagesDir),
+		RootDir:          rootDir,
 		PagesDir:         pagesDir,
 		PublicDir:        publicDir,
 		Port:             port,
 		Bundler:          assets.NewBundler(".tmp"),
-		Compiler:         compiler.NewComponentCompiler(baseDir),
-		EndpointCompiler: endpoints.NewCompiler(baseDir, ".tmp/endpoints"),
+		Compiler:         compiler.NewComponentCompiler(srcDir),
+		EndpointCompiler: endpoints.NewCompiler(rootDir, ".tmp/endpoints"),
 		Verbose:          verbose,
 	}
 }
