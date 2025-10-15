@@ -4,3 +4,11 @@
 gastro
 lsp-server
 _assets/
+
+# Markdown files except essential OSS files
+*.md
+!README.md
+!CONTRIBUTING.md
+!LICENSE.md
+!CHANGELOG.md
+!CODE_OF_CONDUCT.md
