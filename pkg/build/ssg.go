@@ -132,6 +132,7 @@ func (b *SSGBuilder) buildStaticRoute(route *router.Route) error {
 		}
 	}
 
+	b.Compiler.CollectedStyles = nil
 	processedTemplate := b.Compiler.ProcessComponentTags(comp.Template, ctx)
 
 	engine := template.NewEngine(ctx)
@@ -140,7 +141,16 @@ func (b *SSGBuilder) buildStaticRoute(route *router.Route) error {
 		return err
 	}
 
-	cssPath, err := b.Bundler.BundleStyles(comp, route.FilePath)
+	allStyles := append(comp.Styles, b.Compiler.CollectedStyles...)
+	compWithStyles := &parser.Component{
+		Frontmatter: comp.Frontmatter,
+		Template:    comp.Template,
+		Scripts:     comp.Scripts,
+		Styles:      allStyles,
+		Imports:     comp.Imports,
+	}
+
+	cssPath, err := b.Bundler.BundleStyles(compWithStyles, route.FilePath)
 	if err != nil {
 		return err
 	}
@@ -151,7 +161,7 @@ func (b *SSGBuilder) buildStaticRoute(route *router.Route) error {
 	}
 
 	scopeID := ""
-	for _, style := range comp.Styles {
+	for _, style := range allStyles {
 		if style.Scoped {
 			scopeID = b.Bundler.GenerateScopeID(route.FilePath)
 			break

@@ -13,10 +13,11 @@ import (
 )
 
 type ComponentCompiler struct {
-	BaseDir  string
-	Cache    map[string]*parser.Component
-	Bundler  *assets.Bundler
-	Resolver *ComponentResolver
+	BaseDir         string
+	Cache           map[string]*parser.Component
+	Bundler         *assets.Bundler
+	Resolver        *ComponentResolver
+	CollectedStyles []parser.Style
 }
 
 func NewComponentCompiler(baseDir string) *ComponentCompiler {
@@ -34,6 +35,7 @@ func (c *ComponentCompiler) SetResolver(resolver *ComponentResolver) {
 
 func (c *ComponentCompiler) ClearCache() {
 	c.Cache = make(map[string]*parser.Component)
+	c.CollectedStyles = nil
 }
 
 func (c *ComponentCompiler) Compile(filePath string, props map[string]interface{}, slots map[string]string) (string, error) {
@@ -41,6 +43,8 @@ func (c *ComponentCompiler) Compile(filePath string, props map[string]interface{
 	if err != nil {
 		return "", err
 	}
+
+	c.CollectedStyles = append(c.CollectedStyles, comp.Styles...)
 
 	ctx := executor.NewContext()
 	for k, v := range props {

@@ -193,6 +193,7 @@ func (s *DevServer) handlePage(route *router.Route, mwCtx *middleware.Context, p
 		}
 	}
 
+	s.Compiler.CollectedStyles = nil
 	processedTemplate := s.Compiler.ProcessComponentTags(comp.Template, ctx)
 
 	engine := template.NewEngine(ctx)
@@ -202,7 +203,16 @@ func (s *DevServer) handlePage(route *router.Route, mwCtx *middleware.Context, p
 		return
 	}
 
-	cssPath, err := s.Bundler.BundleStyles(comp, route.FilePath)
+	allStyles := append(comp.Styles, s.Compiler.CollectedStyles...)
+	compWithStyles := &parser.Component{
+		Frontmatter: comp.Frontmatter,
+		Template:    comp.Template,
+		Scripts:     comp.Scripts,
+		Styles:      allStyles,
+		Imports:     comp.Imports,
+	}
+
+	cssPath, err := s.Bundler.BundleStyles(compWithStyles, route.FilePath)
 	if err != nil {
 		http.Error(mwCtx.Response, fmt.Sprintf("Style bundle error: %v", err), http.StatusInternalServerError)
 		return
@@ -215,7 +225,7 @@ func (s *DevServer) handlePage(route *router.Route, mwCtx *middleware.Context, p
 	}
 
 	scopeID := ""
-	for _, style := range comp.Styles {
+	for _, style := range allStyles {
 		if style.Scoped {
 			scopeID = s.Bundler.GenerateScopeID(route.FilePath)
 			break
