@@ -19,6 +19,7 @@ import (
 
 type SSGBuilder struct {
 	Config        *config.Config
+	SrcDir        string
 	PagesDir      string
 	OutDir        string
 	PublicDir     string
@@ -28,8 +29,8 @@ type SSGBuilder struct {
 	PluginManager *plugins.Manager
 }
 
-func NewSSGBuilder(cfg *config.Config, pagesDir, outDir, publicDir string) *SSGBuilder {
-	baseDir := filepath.Dir(pagesDir)
+func NewSSGBuilder(cfg *config.Config, srcDir, pagesDir, outDir, publicDir string) *SSGBuilder {
+	baseDir := srcDir
 
 	pluginMgr := plugins.NewManager(cfg)
 	pluginMgr.Register(tailwind.New())
@@ -39,6 +40,7 @@ func NewSSGBuilder(cfg *config.Config, pagesDir, outDir, publicDir string) *SSGB
 
 	return &SSGBuilder{
 		Config:        cfg,
+		SrcDir:        srcDir,
 		PagesDir:      pagesDir,
 		OutDir:        outDir,
 		PublicDir:     publicDir,
@@ -50,7 +52,7 @@ func NewSSGBuilder(cfg *config.Config, pagesDir, outDir, publicDir string) *SSGB
 }
 
 func (b *SSGBuilder) Build() error {
-	baseDir := filepath.Dir(b.PagesDir)
+	baseDir := b.SrcDir
 	if err := b.PluginManager.Load(baseDir, b.OutDir); err != nil {
 		return fmt.Errorf("load plugins: %w", err)
 	}

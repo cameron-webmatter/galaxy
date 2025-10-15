@@ -77,6 +77,10 @@ func (c *Config) Validate() error {
 		c.PackageManager = "npm"
 	}
 
+	if c.SrcDir == "" {
+		c.SrcDir = "./src"
+	}
+
 	return nil
 }
 

@@ -1,0 +1,89 @@
+---
+var title = "Documentation"
+---
+
+<Layout title={title}>
+	<aside>
+		<nav>
+			<h3>Getting Started</h3>
+			<ul>
+				<li><a href="/">Introduction</a></li>
+				<li><a href="/installation">Installation</a></li>
+				<li><a href="/quick-start">Quick Start</a></li>
+			</ul>
+			<h3>Guides</h3>
+			<ul>
+				<li><a href="/components">Components</a></li>
+				<li><a href="/routing">Routing</a></li>
+				<li><a href="/styling">Styling</a></li>
+			</ul>
+		</nav>
+	</aside>
+
+	<main>
+		<h1>Introduction</h1>
+		<p>Welcome to the documentation. Get started building amazing sites.</p>
+
+		<h2>Features</h2>
+		<ul>
+			<li>Fast builds with Go</li>
+			<li>Component-based architecture</li>
+			<li>File-based routing</li>
+			<li>Static site generation</li>
+		</ul>
+
+		<h2>Quick Example</h2>
+		<pre><code>galaxy create my-site
+cd my-site
+galaxy dev</code></pre>
+	</main>
+</Layout>
+
+<style>
+	aside {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 250px;
+		height: 100vh;
+		padding: 2rem;
+		background: #f9fafb;
+		border-right: 1px solid #e5e7eb;
+		overflow-y: auto;
+	}
+	aside h3 {
+		font-size: 0.875rem;
+		text-transform: uppercase;
+		color: #6b7280;
+		margin-top: 2rem;
+	}
+	aside ul {
+		list-style: none;
+		padding: 0;
+	}
+	aside a {
+		display: block;
+		padding: 0.5rem 0;
+		color: #374151;
+		text-decoration: none;
+	}
+	aside a:hover {
+		color: #2563eb;
+	}
+	main {
+		margin-left: 250px;
+		max-width: 800px;
+		padding: 2rem 3rem;
+		font-family: system-ui, sans-serif;
+	}
+	pre {
+		background: #1f2937;
+		color: #f3f4f6;
+		padding: 1rem;
+		border-radius: 0.5rem;
+		overflow-x: auto;
+	}
+	code {
+		font-family: 'Courier New', monospace;
+	}
+</style>

@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/galaxy/galaxy/pkg/config"
 	"github.com/galaxy/galaxy/pkg/server"
 	"github.com/spf13/cobra"
 )
@@ -47,10 +48,20 @@ func runDev(cmd *cobra.Command, args []string) error {
 		cwd = rootDir
 	}
 
-	pagesDir := filepath.Join(cwd, "pages")
+	cfg, err := config.LoadFromDir(cwd)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	srcDir := cfg.SrcDir
+	if !filepath.IsAbs(srcDir) {
+		srcDir = filepath.Join(cwd, srcDir)
+	}
+
+	pagesDir := filepath.Join(srcDir, "pages")
 	publicDir := filepath.Join(cwd, "public")
 
-	if _, err := os.Stat(pagesDir); os.IsNotExist(err) {
+	if _, err = os.Stat(pagesDir); os.IsNotExist(err) {
 		return fmt.Errorf("pages directory not found: %s", pagesDir)
 	}
 
@@ -69,7 +80,7 @@ func runDev(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	componentsDir := filepath.Join(cwd, "components")
+	componentsDir := filepath.Join(srcDir, "components")
 	hasComponents := false
 	if _, err := os.Stat(componentsDir); err == nil {
 		hasComponents = true

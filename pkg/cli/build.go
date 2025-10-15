@@ -43,20 +43,25 @@ func runBuild(cmd *cobra.Command, args []string) error {
 		cwd = rootDir
 	}
 
-	pagesDir := filepath.Join(cwd, "pages")
+	cfg, err := config.LoadFromDir(cwd)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	srcDir := cfg.SrcDir
+	if !filepath.IsAbs(srcDir) {
+		srcDir = filepath.Join(cwd, srcDir)
+	}
+
+	pagesDir := filepath.Join(srcDir, "pages")
 	publicDir := filepath.Join(cwd, "public")
 	outDir := buildOutDir
 	if !filepath.IsAbs(outDir) {
 		outDir = filepath.Join(cwd, outDir)
 	}
 
-	if _, err := os.Stat(pagesDir); os.IsNotExist(err) {
+	if _, err = os.Stat(pagesDir); os.IsNotExist(err) {
 		return fmt.Errorf("pages directory not found: %s", pagesDir)
-	}
-
-	cfg, err := config.LoadFromDir(cwd)
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
 	}
 
 	if buildOutDir != "./dist" {
@@ -85,13 +90,13 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	var buildErr error
 
 	if cfg.IsStatic() {
-		builder := build.NewSSGBuilder(cfg, pagesDir, outDir, publicDir)
+		builder := build.NewSSGBuilder(cfg, srcDir, pagesDir, outDir, publicDir)
 		buildErr = builder.Build()
 	} else if cfg.IsHybrid() {
-		builder := build.NewHybridBuilder(cfg, pagesDir, outDir, publicDir)
+		builder := build.NewHybridBuilder(cfg, srcDir, pagesDir, outDir, publicDir)
 		buildErr = builder.Build()
 	} else if cfg.IsSSR() {
-		builder := build.NewSSRBuilder(cfg, pagesDir, outDir, publicDir)
+		builder := build.NewSSRBuilder(cfg, srcDir, pagesDir, outDir, publicDir)
 		buildErr = builder.Build()
 	} else {
 		return fmt.Errorf("unsupported output type: %s", cfg.Output.Type)

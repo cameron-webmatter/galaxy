@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/galaxy/galaxy/pkg/config"
 	"github.com/galaxy/galaxy/pkg/parser"
 	"github.com/spf13/cobra"
 )
@@ -35,8 +36,18 @@ func runCheck(cmd *cobra.Command, args []string) error {
 		cwd = rootDir
 	}
 
-	pagesDir := filepath.Join(cwd, "pages")
-	componentsDir := filepath.Join(cwd, "components")
+	cfg, err := config.LoadFromDir(cwd)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	srcDir := cfg.SrcDir
+	if !filepath.IsAbs(srcDir) {
+		srcDir = filepath.Join(cwd, srcDir)
+	}
+
+	pagesDir := filepath.Join(srcDir, "pages")
+	componentsDir := filepath.Join(srcDir, "components")
 
 	if !silent {
 		fmt.Println("🔍 Checking project...")
@@ -45,12 +56,12 @@ func runCheck(cmd *cobra.Command, args []string) error {
 	errors := 0
 	warnings := 0
 
-	if err := checkDirectory(pagesDir, &errors, &warnings); err != nil {
+	if err = checkDirectory(pagesDir, &errors, &warnings); err != nil {
 		return err
 	}
 
-	if _, err := os.Stat(componentsDir); err == nil {
-		if err := checkDirectory(componentsDir, &errors, &warnings); err != nil {
+	if _, err = os.Stat(componentsDir); err == nil {
+		if err = checkDirectory(componentsDir, &errors, &warnings); err != nil {
 			return err
 		}
 	}

@@ -1,0 +1,41 @@
+---
+var title = "SSR Example"
+var description = "Server-side rendering with request context"
+---
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{title}</title>
+</head>
+<body>
+    <h1>{title}</h1>
+    <p>{description}</p>
+    
+    <div galaxy:if={Request}>
+        <h2>Request Info</h2>
+        <ul>
+            <li>Path: {Request.Path()}</li>
+            <li>Method: {Request.Method()}</li>
+            <li>URL: {Request.URL()}</li>
+        </ul>
+    </div>
+
+    <nav>
+        <a href="/api/user/123">Dynamic Route</a> | 
+        <a href="/blog">Blog</a>
+    </nav>
+</body>
+</html>
+
+<style scoped>
+body {
+    font-family: system-ui;
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+h1 { color: #2563eb; }
+nav { margin-top: 2rem; }
+a { color: #0ea5e9; }
+</style>

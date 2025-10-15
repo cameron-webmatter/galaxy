@@ -1,0 +1,33 @@
+---
+var title = "User Profile"
+---
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{title}</title>
+</head>
+<body>
+    <h1>{title}</h1>
+    
+    <div galaxy:if={Request}>
+        <h2>Dynamic Route Parameters</h2>
+        <p>User ID from URL: <strong>{id}</strong></p>
+        <p>Full Path: {Request.Path()}</p>
+        <p>Method: {Request.Method()}</p>
+    </div>
+
+    <a href="/">← Back</a>
+</body>
+</html>
+
+<style scoped>
+body {
+    font-family: system-ui;
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+h1 { color: #2563eb; }
+strong { color: #dc2626; }
+</style>

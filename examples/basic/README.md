@@ -5,9 +5,10 @@ Static site generation (SSG) example.
 ## Structure
 
 ```
-pages/        # Route files (.gxc)
-components/   # Reusable components
-public/       # Static assets
+src/
+  pages/        # Route files (.gxc)
+  components/   # Reusable components
+public/         # Static assets
 ```
 
 ## Features

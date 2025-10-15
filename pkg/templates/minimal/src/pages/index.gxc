@@ -1,0 +1,29 @@
+---
+var title = "Welcome to Galaxy"
+---
+
+<Layout title={title}>
+	<main>
+		<h1>🚀 Welcome to Galaxy</h1>
+		<p>Fast, Go-powered web framework</p>
+		<p>Edit <code>pages/index.gxc</code> to get started.</p>
+	</main>
+</Layout>
+
+<style>
+	main {
+		max-width: 800px;
+		margin: 0 auto;
+		padding: 2rem;
+		font-family: system-ui, sans-serif;
+	}
+	h1 {
+		color: #2563eb;
+	}
+	code {
+		background: #f3f4f6;
+		padding: 0.2rem 0.4rem;
+		border-radius: 0.25rem;
+		font-family: monospace;
+	}
+</style>

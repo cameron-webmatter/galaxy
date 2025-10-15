@@ -20,8 +20,6 @@ import (
 	api "galaxy-server/pages/api"
 	
 	
-	usermw "galaxy-server/src"
-	
 )
 
 var (
@@ -96,19 +94,11 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	mwCtx.Params = make(map[string]string)
 
 	
-	
-	if err := usermw.OnRequest(mwCtx, func() error {
-		if route.IsEndpoint {
-			handleEndpoint(route, mwCtx)
-		} else {
-			handlePage(route, mwCtx)
-		}
-		return nil
-	}); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if route.IsEndpoint {
+		handleEndpoint(route, mwCtx)
 		return
 	}
-	
+	handlePage(route, mwCtx)
 	
 }
 

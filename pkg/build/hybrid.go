@@ -14,6 +14,7 @@ import (
 
 type HybridBuilder struct {
 	Config     *config.Config
+	SrcDir     string
 	PagesDir   string
 	OutDir     string
 	PublicDir  string
@@ -22,15 +23,16 @@ type HybridBuilder struct {
 	SSRBuilder *SSRBuilder
 }
 
-func NewHybridBuilder(cfg *config.Config, pagesDir, outDir, publicDir string) *HybridBuilder {
+func NewHybridBuilder(cfg *config.Config, srcDir, pagesDir, outDir, publicDir string) *HybridBuilder {
 	return &HybridBuilder{
 		Config:     cfg,
+		SrcDir:     srcDir,
 		PagesDir:   pagesDir,
 		OutDir:     outDir,
 		PublicDir:  publicDir,
 		Router:     router.NewRouter(pagesDir),
-		SSGBuilder: NewSSGBuilder(cfg, pagesDir, outDir, publicDir),
-		SSRBuilder: NewSSRBuilder(cfg, pagesDir, outDir, publicDir),
+		SSGBuilder: NewSSGBuilder(cfg, srcDir, pagesDir, outDir, publicDir),
+		SSRBuilder: NewSSRBuilder(cfg, srcDir, pagesDir, outDir, publicDir),
 	}
 }
 

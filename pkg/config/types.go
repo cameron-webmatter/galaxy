@@ -21,6 +21,7 @@ type Config struct {
 	Site           string         `toml:"site"`
 	Base           string         `toml:"base"`
 	OutDir         string         `toml:"outDir"`
+	SrcDir         string         `toml:"srcDir"`
 	PackageManager string         `toml:"packageManager"`
 	Output         OutputConfig   `toml:"output"`
 	Server         ServerConfig   `toml:"server"`
@@ -52,6 +53,7 @@ func DefaultConfig() *Config {
 		Site:           "",
 		Base:           "/",
 		OutDir:         "./dist",
+		SrcDir:         "./src",
 		PackageManager: "npm",
 		Output: OutputConfig{
 			Type: OutputStatic,

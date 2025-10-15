@@ -129,19 +129,19 @@ galaxy docs
 
 ```
 my-project/
-├── pages/              # Routes (file-based routing)
-│   ├── index.gxc       # / route
-│   ├── about.gxc       # /about route
-│   └── api/            # API endpoints (server/hybrid)
-│       └── hello.go    # /api/hello endpoint
-├── src/                # Server-side code (server/hybrid)
-│   └── middleware.go   # Middleware
-├── components/         # Reusable components
-│   └── Layout.gxc
-├── public/            # Static assets
+├── src/
+│   ├── pages/          # Routes (file-based routing)
+│   │   ├── index.gxc   # / route
+│   │   ├── about.gxc   # /about route
+│   │   └── api/        # API endpoints (server/hybrid)
+│   │       └── hello.go # /api/hello endpoint
+│   ├── components/     # Reusable components
+│   │   └── Layout.gxc
+│   └── middleware.go   # Middleware (server/hybrid)
+├── public/             # Static assets
 │   └── style.css
-├── galaxy.config.toml # Configuration
-└── go.mod             # Go dependencies (server/hybrid)
+├── galaxy.config.toml  # Configuration
+└── go.mod              # Go dependencies (server/hybrid)
 ```
 
 ## Component Syntax (.gxc)
@@ -313,7 +313,7 @@ func OnRequest(ctx *middleware.Context, next func() error) error {
 
 **Multiple middleware (chained):**
 ```go
-package src
+package middleware
 
 import "github.com/galaxy/galaxy/pkg/middleware"
 
@@ -345,10 +345,10 @@ Access in `.gxc` pages:
 
 ## API Endpoints (Server/Hybrid Mode)
 
-Create Go files in `pages/api/`:
+Create Go files in `src/pages/api/`:
 
 ```go
-// pages/api/hello.go
+// src/pages/api/hello.go
 package api
 
 import "github.com/galaxy/galaxy/pkg/endpoints"
@@ -395,9 +395,9 @@ galaxy build
 ## Features
 
 ### File-Based Routing
-- `pages/index.gxc` → `/`
-- `pages/about.gxc` → `/about`
-- `pages/blog/[slug].gxc` → `/blog/:slug` (dynamic)
+- `src/pages/index.gxc` → `/`
+- `src/pages/about.gxc` → `/about`
+- `src/pages/blog/[slug].gxc` → `/blog/:slug` (dynamic)
 
 ### Components
 - Reusable `.gxc` components

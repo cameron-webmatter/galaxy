@@ -15,6 +15,7 @@ import (
 
 type SSRBuilder struct {
 	Config        *config.Config
+	SrcDir        string
 	PagesDir      string
 	OutDir        string
 	PublicDir     string
@@ -22,12 +23,13 @@ type SSRBuilder struct {
 	PluginManager *plugins.Manager
 }
 
-func NewSSRBuilder(cfg *config.Config, pagesDir, outDir, publicDir string) *SSRBuilder {
+func NewSSRBuilder(cfg *config.Config, srcDir, pagesDir, outDir, publicDir string) *SSRBuilder {
 	pluginMgr := plugins.NewManager(cfg)
 	pluginMgr.Register(tailwind.New())
 
 	return &SSRBuilder{
 		Config:        cfg,
+		SrcDir:        srcDir,
 		PagesDir:      pagesDir,
 		OutDir:        outDir,
 		PublicDir:     publicDir,
@@ -37,7 +39,7 @@ func NewSSRBuilder(cfg *config.Config, pagesDir, outDir, publicDir string) *SSRB
 }
 
 func (b *SSRBuilder) Build() error {
-	baseDir := filepath.Dir(b.PagesDir)
+	baseDir := b.SrcDir
 	if err := b.PluginManager.Load(baseDir, b.OutDir); err != nil {
 		return fmt.Errorf("load plugins: %w", err)
 	}

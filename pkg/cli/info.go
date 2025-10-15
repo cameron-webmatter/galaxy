@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/galaxy/galaxy/pkg/config"
 	"github.com/spf13/cobra"
 )
 
@@ -31,19 +32,27 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	fmt.Printf("System                   %s (%s)\n", runtime.GOOS, runtime.GOARCH)
 	fmt.Printf("Working Directory        %s\n", cwd)
 
-	configPath := filepath.Join(cwd, "galaxy.config.toml")
-	if _, err := os.Stat(configPath); err == nil {
-		fmt.Printf("Config                   %s\n", configPath)
-	}
+	cfg, err := config.LoadFromDir(cwd)
+	if err == nil {
+		srcDir := cfg.SrcDir
+		if !filepath.IsAbs(srcDir) {
+			srcDir = filepath.Join(cwd, srcDir)
+		}
 
-	pagesDir := filepath.Join(cwd, "pages")
-	if info, err := os.Stat(pagesDir); err == nil && info.IsDir() {
-		fmt.Printf("Pages                    %s\n", pagesDir)
-	}
+		configPath := filepath.Join(cwd, "galaxy.config.toml")
+		if _, err := os.Stat(configPath); err == nil {
+			fmt.Printf("Config                   %s\n", configPath)
+		}
 
-	componentsDir := filepath.Join(cwd, "components")
-	if info, err := os.Stat(componentsDir); err == nil && info.IsDir() {
-		fmt.Printf("Components               %s\n", componentsDir)
+		pagesDir := filepath.Join(srcDir, "pages")
+		if info, err := os.Stat(pagesDir); err == nil && info.IsDir() {
+			fmt.Printf("Pages                    %s\n", pagesDir)
+		}
+
+		componentsDir := filepath.Join(srcDir, "components")
+		if info, err := os.Stat(componentsDir); err == nil && info.IsDir() {
+			fmt.Printf("Components               %s\n", componentsDir)
+		}
 	}
 
 	publicDir := filepath.Join(cwd, "public")
