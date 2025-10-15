@@ -111,53 +111,73 @@ func findDirectiveElement(template string, directiveName string) (tag string, at
 		return "", "", "", 0, 0, false
 	}
 
-	openEnd := strings.Index(template[idx:], ">")
-	if openEnd == -1 {
-		return "", "", "", 0, 0, false
-	}
-	openEnd += idx
-
+	// Find tag closing > by tracking brace depth
 	tagNameEnd := openStart + 1
 	for tagNameEnd < len(template) && template[tagNameEnd] != ' ' && template[tagNameEnd] != '>' {
 		tagNameEnd++
 	}
-	tag = template[openStart+1 : tagNameEnd]
 
+	pos := tagNameEnd
+	braceDepth := 0
+	var openEnd int
+	foundOpen := false
+
+	for pos < len(template) {
+		c := template[pos]
+
+		if c == '{' {
+			braceDepth++
+		} else if c == '}' {
+			braceDepth--
+		} else if c == '>' && braceDepth == 0 {
+			openEnd = pos
+			foundOpen = true
+			break
+		}
+
+		pos++
+	}
+
+	if !foundOpen {
+		return "", "", "", 0, 0, false
+	}
+
+	tag = template[openStart+1 : tagNameEnd]
 	attrs = strings.TrimSpace(template[tagNameEnd:openEnd])
 
 	depth := 1
-	pos := openEnd + 1
+	searchPos := openEnd + 1
 	searchTag := "<" + tag
 	closeTag := "</" + tag + ">"
 
-	for pos < len(template) && depth > 0 {
-		nextOpen := strings.Index(template[pos:], searchTag)
-		nextClose := strings.Index(template[pos:], closeTag)
+	for searchPos < len(template) && depth > 0 {
+		nextOpen := strings.Index(template[searchPos:], searchTag)
+		nextClose := strings.Index(template[searchPos:], closeTag)
 
 		if nextClose == -1 {
 			return "", "", "", 0, 0, false
 		}
 
 		if nextOpen != -1 && nextOpen < nextClose {
-			if pos+nextOpen+len(searchTag) < len(template) {
-				nextChar := template[pos+nextOpen+len(searchTag)]
+			if searchPos+nextOpen+len(searchTag) < len(template) {
+				nextChar := template[searchPos+nextOpen+len(searchTag)]
 				if nextChar == ' ' || nextChar == '>' {
 					depth++
-					pos += nextOpen + len(searchTag)
+					searchPos += nextOpen + len(searchTag)
 					continue
 				}
 			}
-			pos += nextOpen + 1
+			searchPos += nextOpen + 1
 			continue
 		}
 
 		depth--
 		if depth == 0 {
-			content = template[openEnd+1 : pos+nextClose]
-			end = pos + nextClose + len(closeTag)
+			content = template[openEnd+1 : searchPos+nextClose]
+			end = searchPos + nextClose + len(closeTag)
 			return tag, attrs, content, openStart, end, true
 		}
-		pos += nextClose + len(closeTag)
+		searchPos += nextClose + len(closeTag)
 	}
 
 	return "", "", "", 0, 0, false
@@ -184,6 +204,203 @@ func replaceAllDirectives(template string, directive string, replacer func(tag, 
 	return result
 }
 
+func isWhitespace(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\n' || c == '\r'
+}
+
+func findNextSiblingElement(template string, startPos int) (tag string, attrs string, content string, start int, end int, found bool) {
+	pos := startPos
+	for pos < len(template) && isWhitespace(template[pos]) {
+		pos++
+	}
+
+	if pos >= len(template) || template[pos] != '<' {
+		return "", "", "", 0, 0, false
+	}
+
+	if pos+1 < len(template) && (template[pos+1] == '/' || template[pos+1] == '!') {
+		return "", "", "", 0, 0, false
+	}
+
+	tagStart := pos + 1
+	tagEnd := tagStart
+	for tagEnd < len(template) && template[tagEnd] != ' ' && template[tagEnd] != '>' {
+		tagEnd++
+	}
+	tag = template[tagStart:tagEnd]
+
+	// Find opening tag end by tracking brace depth
+	// This handles comparison operators like >= inside {...}
+	attrPos := tagEnd
+	braceDepth := 0
+	var openEnd int
+	foundOpen := false
+
+	for attrPos < len(template) {
+		c := template[attrPos]
+
+		if c == '{' {
+			braceDepth++
+		} else if c == '}' {
+			braceDepth--
+		} else if c == '>' && braceDepth == 0 {
+			openEnd = attrPos
+			foundOpen = true
+			break
+		}
+
+		attrPos++
+	}
+
+	if !foundOpen {
+		return "", "", "", 0, 0, false
+	}
+
+	attrs = strings.TrimSpace(template[tagEnd:openEnd])
+
+	depth := 1
+	searchPos := openEnd + 1
+	searchTag := "<" + tag
+	closeTag := "</" + tag + ">"
+
+	for searchPos < len(template) && depth > 0 {
+		nextOpen := strings.Index(template[searchPos:], searchTag)
+		nextClose := strings.Index(template[searchPos:], closeTag)
+
+		if nextClose == -1 {
+			return "", "", "", 0, 0, false
+		}
+
+		if nextOpen != -1 && nextOpen < nextClose {
+			if searchPos+nextOpen+len(searchTag) < len(template) {
+				nextChar := template[searchPos+nextOpen+len(searchTag)]
+				if nextChar == ' ' || nextChar == '>' {
+					depth++
+					searchPos += nextOpen + len(searchTag)
+					continue
+				}
+			}
+			searchPos += nextOpen + 1
+			continue
+		}
+
+		depth--
+		if depth == 0 {
+			content = template[openEnd+1 : searchPos+nextClose]
+			end = searchPos + nextClose + len(closeTag)
+			return tag, attrs, content, pos, end, true
+		}
+		searchPos += nextClose + len(closeTag)
+	}
+
+	return "", "", "", 0, 0, false
+}
+
+type ConditionalBranch struct {
+	Type      string
+	Condition string
+	Tag       string
+	Attrs     string
+	Content   string
+	Start     int
+	End       int
+}
+
+func findConditionalBlock(template string, directive string) (branches []ConditionalBranch, blockStart int, blockEnd int, found bool) {
+	ifTag, ifAttrs, ifContent, ifStart, ifEnd, ifFound := findDirectiveElement(template, directive)
+	if !ifFound {
+		return nil, 0, 0, false
+	}
+
+	condStart := strings.Index(ifAttrs, directive+"={")
+	if condStart == -1 {
+		return nil, 0, 0, false
+	}
+	condStart += len(directive + "={")
+	condEnd := strings.Index(ifAttrs[condStart:], "}")
+	if condEnd == -1 {
+		return nil, 0, 0, false
+	}
+	condition := strings.TrimSpace(ifAttrs[condStart : condStart+condEnd])
+
+	otherAttrs := strings.TrimSpace(
+		ifAttrs[:condStart-len(directive+"={")] +
+			ifAttrs[condStart+condEnd+1:],
+	)
+
+	branches = []ConditionalBranch{{
+		Type:      "if",
+		Condition: condition,
+		Tag:       ifTag,
+		Attrs:     otherAttrs,
+		Content:   ifContent,
+		Start:     ifStart,
+		End:       ifEnd,
+	}}
+
+	blockStart = ifStart
+	blockEnd = ifEnd
+
+	currentEnd := ifEnd
+	for {
+		sibTag, sibAttrs, sibContent, sibStart, sibEnd, sibFound := findNextSiblingElement(template, currentEnd)
+		if !sibFound {
+			break
+		}
+
+		if strings.Contains(sibAttrs, "galaxy:elsif={") {
+			elsifCondStart := strings.Index(sibAttrs, "galaxy:elsif={")
+			elsifCondStart += len("galaxy:elsif={")
+			elsifCondEnd := strings.Index(sibAttrs[elsifCondStart:], "}")
+			if elsifCondEnd == -1 {
+				break
+			}
+			elsifCondition := strings.TrimSpace(sibAttrs[elsifCondStart : elsifCondStart+elsifCondEnd])
+
+			elsifOtherAttrs := strings.TrimSpace(
+				sibAttrs[:elsifCondStart-len("galaxy:elsif={")] +
+					sibAttrs[elsifCondStart+elsifCondEnd+1:],
+			)
+
+			branches = append(branches, ConditionalBranch{
+				Type:      "elsif",
+				Condition: elsifCondition,
+				Tag:       sibTag,
+				Attrs:     elsifOtherAttrs,
+				Content:   sibContent,
+				Start:     sibStart,
+				End:       sibEnd,
+			})
+
+			blockEnd = sibEnd
+			currentEnd = sibEnd
+			continue
+		}
+
+		if strings.Contains(sibAttrs, "galaxy:else") {
+			elseOtherAttrs := strings.ReplaceAll(sibAttrs, "galaxy:else", "")
+			elseOtherAttrs = strings.TrimSpace(elseOtherAttrs)
+
+			branches = append(branches, ConditionalBranch{
+				Type:      "else",
+				Condition: "",
+				Tag:       sibTag,
+				Attrs:     elseOtherAttrs,
+				Content:   sibContent,
+				Start:     sibStart,
+				End:       sibEnd,
+			})
+
+			blockEnd = sibEnd
+			break
+		}
+
+		break
+	}
+
+	return branches, blockStart, blockEnd, true
+}
+
 func (e *Engine) renderDirectives(template string) string {
 	template = e.renderIfDirective(template)
 	template = e.renderForDirective(template)
@@ -191,35 +408,58 @@ func (e *Engine) renderDirectives(template string) string {
 }
 
 func (e *Engine) renderIfDirective(template string) string {
-	return replaceAllDirectives(template, "galaxy:if", func(tag, attrs, content string) string {
-		ifStart := strings.Index(attrs, "galaxy:if={")
-		if ifStart == -1 {
-			return fmt.Sprintf("<%s %s>%s</%s>", tag, attrs, content, tag)
+	result := template
+	offset := 0
+
+	for {
+		branches, blockStart, blockEnd, found := findConditionalBlock(result[offset:], "galaxy:if")
+		if !found {
+			break
 		}
 
-		ifStart += len("galaxy:if={")
-		ifEnd := strings.Index(attrs[ifStart:], "}")
-		if ifEnd == -1 {
-			return fmt.Sprintf("<%s %s>%s</%s>", tag, attrs, content, tag)
-		}
+		blockStart += offset
+		blockEnd += offset
 
-		condition := strings.TrimSpace(attrs[ifStart : ifStart+ifEnd])
+		var renderBranch *ConditionalBranch
+		for i := range branches {
+			branch := &branches[i]
 
-		otherAttrs := strings.TrimSpace(
-			attrs[:ifStart-len("galaxy:if={")] +
-				attrs[ifStart+ifEnd+1:],
-		)
-
-		if e.evaluateCondition(condition) {
-			if otherAttrs != "" {
-				return fmt.Sprintf("<%s %s>%s</%s>", tag, otherAttrs, content, tag)
-			} else {
-				return fmt.Sprintf("<%s>%s</%s>", tag, content, tag)
+			if branch.Type == "if" || branch.Type == "elsif" {
+				if e.evaluateCondition(branch.Condition) {
+					renderBranch = branch
+					break
+				}
+			} else if branch.Type == "else" {
+				renderBranch = branch
+				break
 			}
 		}
 
-		return ""
-	})
+		var replacement string
+		if renderBranch != nil {
+			processedContent := e.renderDirectives(renderBranch.Content)
+
+			if renderBranch.Attrs != "" {
+				replacement = fmt.Sprintf("<%s %s>%s</%s>",
+					renderBranch.Tag,
+					renderBranch.Attrs,
+					processedContent,
+					renderBranch.Tag)
+			} else {
+				replacement = fmt.Sprintf("<%s>%s</%s>",
+					renderBranch.Tag,
+					processedContent,
+					renderBranch.Tag)
+			}
+		} else {
+			replacement = ""
+		}
+
+		result = result[:blockStart] + replacement + result[blockEnd:]
+		offset = blockStart + len(replacement)
+	}
+
+	return result
 }
 
 func (e *Engine) renderForDirective(template string) string {
@@ -280,24 +520,174 @@ func (e *Engine) renderForDirective(template string) string {
 }
 
 func (e *Engine) evaluateCondition(condition string) bool {
-	if val, ok := e.ctx.Get(condition); ok {
-		switch v := val.(type) {
-		case bool:
-			return v
-		case int64:
-			return v != 0
-		case float64:
-			return v != 0
-		case string:
-			return v != ""
-		case []interface{}:
-			return len(v) > 0
-		default:
-			return true
+	condition = strings.TrimSpace(condition)
+
+	// Check two-char operators first (order matters!)
+	if strings.Contains(condition, "==") {
+		parts := strings.SplitN(condition, "==", 2)
+		left := e.evaluateValue(strings.TrimSpace(parts[0]))
+		right := e.evaluateValue(strings.TrimSpace(parts[1]))
+		return e.compareEqual(left, right)
+	}
+
+	if strings.Contains(condition, "!=") {
+		parts := strings.SplitN(condition, "!=", 2)
+		left := e.evaluateValue(strings.TrimSpace(parts[0]))
+		right := e.evaluateValue(strings.TrimSpace(parts[1]))
+		return !e.compareEqual(left, right)
+	}
+
+	if strings.Contains(condition, ">=") {
+		parts := strings.SplitN(condition, ">=", 2)
+		left := e.evaluateValue(strings.TrimSpace(parts[0]))
+		right := e.evaluateValue(strings.TrimSpace(parts[1]))
+		cmp := e.compareValues(left, right)
+		return cmp >= 0
+	}
+
+	if strings.Contains(condition, "<=") {
+		parts := strings.SplitN(condition, "<=", 2)
+		left := e.evaluateValue(strings.TrimSpace(parts[0]))
+		right := e.evaluateValue(strings.TrimSpace(parts[1]))
+		cmp := e.compareValues(left, right)
+		return cmp <= 0
+	}
+
+	// Check single-char operators after two-char
+	if strings.Contains(condition, ">") {
+		parts := strings.SplitN(condition, ">", 2)
+		left := e.evaluateValue(strings.TrimSpace(parts[0]))
+		right := e.evaluateValue(strings.TrimSpace(parts[1]))
+		cmp := e.compareValues(left, right)
+		return cmp > 0
+	}
+
+	if strings.Contains(condition, "<") {
+		parts := strings.SplitN(condition, "<", 2)
+		left := e.evaluateValue(strings.TrimSpace(parts[0]))
+		right := e.evaluateValue(strings.TrimSpace(parts[1]))
+		cmp := e.compareValues(left, right)
+		return cmp < 0
+	}
+
+	// Simple variable lookup
+	val := e.evaluateValue(condition)
+	return e.isTruthy(val)
+}
+
+func (e *Engine) evaluateValue(expr string) interface{} {
+	expr = strings.TrimSpace(expr)
+
+	// String literal
+	if (strings.HasPrefix(expr, "\"") && strings.HasSuffix(expr, "\"")) ||
+		(strings.HasPrefix(expr, "'") && strings.HasSuffix(expr, "'")) {
+		return expr[1 : len(expr)-1]
+	}
+
+	// Number literal
+	if len(expr) > 0 && (expr[0] >= '0' && expr[0] <= '9') || expr[0] == '-' {
+		if val, err := fmt.Sscanf(expr, "%d", new(int64)); err == nil && val == 1 {
+			var num int64
+			fmt.Sscanf(expr, "%d", &num)
+			return num
+		}
+		if val, err := fmt.Sscanf(expr, "%f", new(float64)); err == nil && val == 1 {
+			var num float64
+			fmt.Sscanf(expr, "%f", &num)
+			return num
+		}
+	}
+
+	// Variable lookup
+	if val, ok := e.ctx.Get(expr); ok {
+		return val
+	}
+
+	return nil
+}
+
+func (e *Engine) isTruthy(val interface{}) bool {
+	if val == nil {
+		return false
+	}
+
+	switch v := val.(type) {
+	case bool:
+		return v
+	case int64:
+		return v != 0
+	case float64:
+		return v != 0
+	case string:
+		return v != ""
+	case []interface{}:
+		return len(v) > 0
+	default:
+		return true
+	}
+}
+
+func (e *Engine) compareEqual(left, right interface{}) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+
+	// Same type comparison
+	switch l := left.(type) {
+	case string:
+		if r, ok := right.(string); ok {
+			return l == r
+		}
+	case int64:
+		if r, ok := right.(int64); ok {
+			return l == r
+		}
+		if r, ok := right.(float64); ok {
+			return float64(l) == r
+		}
+	case float64:
+		if r, ok := right.(float64); ok {
+			return l == r
+		}
+		if r, ok := right.(int64); ok {
+			return l == float64(r)
+		}
+	case bool:
+		if r, ok := right.(bool); ok {
+			return l == r
 		}
 	}
 
 	return false
+}
+
+func (e *Engine) compareValues(left, right interface{}) int {
+	// Compare numerics
+	leftNum := e.toNumber(left)
+	rightNum := e.toNumber(right)
+
+	if leftNum < rightNum {
+		return -1
+	}
+	if leftNum > rightNum {
+		return 1
+	}
+	return 0
+}
+
+func (e *Engine) toNumber(val interface{}) float64 {
+	switch v := val.(type) {
+	case int64:
+		return float64(v)
+	case float64:
+		return v
+	case string:
+		var num float64
+		fmt.Sscanf(v, "%f", &num)
+		return num
+	default:
+		return 0
+	}
 }
 
 func ParseAttributes(attrString string) map[string]interface{} {
