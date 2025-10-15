@@ -3,8 +3,8 @@ package lsp
 import (
 	"fmt"
 
-	"github.com/gastro/gastro/pkg/executor"
-	"github.com/gastro/gastro/pkg/parser"
+	"github.com/galaxy/galaxy/pkg/executor"
+	"github.com/galaxy/galaxy/pkg/parser"
 	"go.lsp.dev/protocol"
 )
 

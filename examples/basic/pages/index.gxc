@@ -1,5 +1,5 @@
 ---
-var title = "Welcome to Gastro"
+var title = "Welcome to Galaxy"
 var description = "A Go-powered web framework"
 var features = []string{"Fast", "Type-safe", "Go runtime"}
 var count = 3
@@ -21,17 +21,17 @@ var count = 3
         <section>
             <h2>Features</h2>
             <ul>
-                <li gastro:for={feature in features}>{feature}</li>
+                <li galaxy:for={feature in features}>{feature}</li>
             </ul>
         </section>
 
-        <div gastro:if={count}>
+        <div galaxy:if={count}>
             <p>We have {count} amazing features!</p>
         </div>
     </main>
 
     <footer>
-        <p>Built with Gastro</p>
+        <p>Built with Galaxy</p>
     </footer>
 </body>
 </html>

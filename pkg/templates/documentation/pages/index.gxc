@@ -33,9 +33,9 @@ title: "Documentation"
 		</ul>
 
 		<h2>Quick Example</h2>
-		<pre><code>gastro create my-site
+		<pre><code>galaxy create my-site
 cd my-site
-gastro dev</code></pre>
+galaxy dev</code></pre>
 	</main>
 </Layout>
 

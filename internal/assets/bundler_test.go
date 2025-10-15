@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gastro/gastro/pkg/parser"
+	"github.com/galaxy/galaxy/pkg/parser"
 )
 
 func TestNewBundler(t *testing.T) {

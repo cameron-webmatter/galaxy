@@ -1,6 +1,6 @@
-# Contributing to Gastro
+# Contributing to Galaxy
 
-Thank you for your interest in contributing to Gastro! 🎉
+Thank you for your interest in contributing to Galaxy! 🎉
 
 ## Getting Started
 
@@ -11,11 +11,11 @@ Thank you for your interest in contributing to Gastro! 🎉
 ### Setup
 ```bash
 # Fork and clone the repo
-git clone https://github.com/YOUR-USERNAME/gastro
-cd gastro
+git clone https://github.com/YOUR-USERNAME/galaxy
+cd galaxy
 
 # Build the project
-go build -o gastro ./cmd/gastro
+go build -o galaxy ./cmd/galaxy
 
 # Run tests
 go test ./...
@@ -42,9 +42,9 @@ git checkout -b fix/my-fix
 go test ./...
 
 # Test the CLI manually
-./gastro create test-project
+./galaxy create test-project
 cd test-project
-../gastro dev
+../galaxy dev
 ```
 
 ### 4. Commit
@@ -71,8 +71,8 @@ Then create a Pull Request on GitHub.
 ## Project Structure
 
 ```
-gastro/
-├── cmd/gastro/          # CLI entry point
+galaxy/
+├── cmd/galaxy/          # CLI entry point
 ├── pkg/
 │   ├── cli/             # CLI commands
 │   ├── server/          # Dev server

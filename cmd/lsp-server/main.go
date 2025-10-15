@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/gastro/gastro/pkg/lsp"
+	"github.com/galaxy/galaxy/pkg/lsp"
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 )

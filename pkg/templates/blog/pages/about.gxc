@@ -5,7 +5,7 @@ title: "About"
 <Layout title={title}>
 	<main>
 		<h1>About Me</h1>
-		<p>This is my blog built with Gastro, a Go-powered web framework.</p>
+		<p>This is my blog built with Galaxy, a Go-powered web framework.</p>
 	</main>
 </Layout>
 

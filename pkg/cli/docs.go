@@ -9,7 +9,7 @@ import (
 var docsCmd = &cobra.Command{
 	Use:   "docs",
 	Short: "Open documentation in browser",
-	Long:  `Open Gastro documentation in your web browser`,
+	Long:  `Open Galaxy documentation in your web browser`,
 	RunE:  runDocs,
 }
 
@@ -18,12 +18,12 @@ func init() {
 }
 
 func runDocs(cmd *cobra.Command, args []string) error {
-	url := "https://github.com/gastro/gastro"
-	
+	url := "https://github.com/galaxy/galaxy"
+
 	if !silent {
 		fmt.Printf("📚 Opening docs: %s\n", url)
 	}
-	
+
 	openBrowser(url)
 	return nil
 }

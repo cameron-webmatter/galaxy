@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/gastro/gastro/pkg/executor"
+	"github.com/galaxy/galaxy/pkg/executor"
 )
 
 type Engine struct {
@@ -105,7 +105,7 @@ func (e *Engine) renderDirectives(template string) string {
 }
 
 func (e *Engine) renderIfDirective(template string) string {
-	ifRegex := regexp.MustCompile(`(?s)<(\w+)\s+gastro:if=\{([^}]+)\}([^>]*)>(.*?)</(\w+)>`)
+	ifRegex := regexp.MustCompile(`(?s)<(\w+)\s+galaxy:if=\{([^}]+)\}([^>]*)>(.*?)</(\w+)>`)
 
 	return ifRegex.ReplaceAllStringFunc(template, func(match string) string {
 		matches := ifRegex.FindStringSubmatch(match)
@@ -132,7 +132,7 @@ func (e *Engine) renderIfDirective(template string) string {
 }
 
 func (e *Engine) renderForDirective(template string) string {
-	forRegex := regexp.MustCompile(`(?s)<(\w+)\s+gastro:for=\{([^}]+)\}([^>]*)>(.*?)</(\w+)>`)
+	forRegex := regexp.MustCompile(`(?s)<(\w+)\s+galaxy:for=\{([^}]+)\}([^>]*)>(.*?)</(\w+)>`)
 
 	return forRegex.ReplaceAllStringFunc(template, func(match string) string {
 		matches := forRegex.FindStringSubmatch(match)

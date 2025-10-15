@@ -11,7 +11,7 @@ var description = "Server-side rendering with request context"
     <h1>{title}</h1>
     <p>{description}</p>
     
-    <div gastro:if={Request}>
+    <div galaxy:if={Request}>
         <h2>Request Info</h2>
         <ul>
             <li>Path: {Request.Path()}</li>

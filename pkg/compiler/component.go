@@ -6,10 +6,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/gastro/gastro/internal/assets"
-	"github.com/gastro/gastro/pkg/executor"
-	"github.com/gastro/gastro/pkg/parser"
-	"github.com/gastro/gastro/pkg/template"
+	"github.com/galaxy/galaxy/internal/assets"
+	"github.com/galaxy/galaxy/pkg/executor"
+	"github.com/galaxy/galaxy/pkg/parser"
+	"github.com/galaxy/galaxy/pkg/template"
 )
 
 type ComponentCompiler struct {

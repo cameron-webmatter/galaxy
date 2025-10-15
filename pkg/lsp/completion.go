@@ -1,8 +1,8 @@
 package lsp
 
 import (
-	"github.com/gastro/gastro/pkg/executor"
-	"github.com/gastro/gastro/pkg/parser"
+	"github.com/galaxy/galaxy/pkg/executor"
+	"github.com/galaxy/galaxy/pkg/parser"
 	"go.lsp.dev/protocol"
 )
 
@@ -29,12 +29,12 @@ func (s *Server) getCompletions(content string, pos protocol.Position) []protoco
 
 	directiveCompletions := []protocol.CompletionItem{
 		{
-			Label:  "gastro:if",
+			Label:  "galaxy:if",
 			Kind:   protocol.CompletionItemKindKeyword,
 			Detail: "Conditional rendering",
 		},
 		{
-			Label:  "gastro:for",
+			Label:  "galaxy:for",
 			Kind:   protocol.CompletionItemKindKeyword,
 			Detail: "Loop rendering",
 		},

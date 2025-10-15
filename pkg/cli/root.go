@@ -16,9 +16,9 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "gastro",
-	Short: "Gastro - A blazing fast web framework CLI",
-	Long: `Gastro is a Go-based web framework inspired by Astro.
+	Use:   "galaxy",
+	Short: "Galaxy - A blazing fast web framework CLI",
+	Long: `Galaxy is a Go-based web framework inspired by Astro.
 Build fast, content-focused websites with ease.
 
 Complete documentation is available at https://github.com/yourusername/astro-go`,

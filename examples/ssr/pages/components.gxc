@@ -15,7 +15,7 @@ var userEmail = "john@example.com"
         <p>Auto-imported from /components!</p>
     </UserCard>
 
-    <div gastro:if={Request}>
+    <div galaxy:if={Request}>
         <p><small>Rendered for: {Request.Path()}</small></p>
     </div>
 

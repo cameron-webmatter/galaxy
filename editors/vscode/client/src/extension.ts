@@ -16,7 +16,7 @@ export function activate(context: vscode.ExtensionContext) {
     return;
   }
 
-  const serverPath = config.get<string>('lsp.serverPath') || 'gastro';
+  const serverPath = config.get<string>('lsp.serverPath') || 'galaxy';
   
   const serverOptions: ServerOptions = {
     command: serverPath,

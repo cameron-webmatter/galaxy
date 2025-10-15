@@ -10,7 +10,7 @@ var serverTime = "Server rendered at request time"
 <body>
     <h1>{title}</h1>
     
-    <div gastro:if={Request}>
+    <div galaxy:if={Request}>
         <h2>Request Information</h2>
         <p>Path: {Request.Path()}</p>
         <p>Method: {Request.Method()}</p>

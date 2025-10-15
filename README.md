@@ -1,4 +1,4 @@
-# Gastro 🚀
+# Galaxy 🚀
 
 A blazing-fast, Go-powered web framework inspired by Astro. Build content-focused websites with ease.
 
@@ -18,42 +18,42 @@ A blazing-fast, Go-powered web framework inspired by Astro. Build content-focuse
 
 ```bash
 # Clone and build
-git clone https://github.com/gastro/gastro
-cd gastro
-go build -o gastro ./cmd/gastro
+git clone https://github.com/galaxy/galaxy
+cd galaxy
+go build -o galaxy ./cmd/galaxy
 
 # Add to PATH (optional)
-sudo mv gastro /usr/local/bin/
+sudo mv galaxy /usr/local/bin/
 ```
 
 ### Create a New Project
 
 ```bash
-gastro create my-project
+galaxy create my-project
 cd my-project
-gastro dev
+galaxy dev
 ```
 
 Visit `http://localhost:4322` 🎉
 
 ## Commands
 
-### `gastro create [name]`
+### `galaxy create [name]`
 Create a new project with interactive setup.
 
 ```bash
-gastro create my-site
+galaxy create my-site
 ```
 
 **Templates:** minimal, blog, portfolio, documentation
 
-### `gastro dev`
+### `galaxy dev`
 Start development server with hot reload.
 
 ```bash
-gastro dev                    # Start on port 4322
-gastro dev --port 3000        # Custom port
-gastro dev --open             # Auto-open browser
+galaxy dev                    # Start on port 4322
+galaxy dev --port 3000        # Custom port
+galaxy dev --open             # Auto-open browser
 ```
 
 **Hotkeys:**
@@ -62,61 +62,61 @@ gastro dev --open             # Auto-open browser
 - `c + enter` - Clear console
 - `q + enter` - Quit
 
-### `gastro build`
+### `galaxy build`
 Build for production.
 
 ```bash
-gastro build                  # Output to ./dist
-gastro build --outDir ./out   # Custom output
-gastro build --verbose        # Show details
+galaxy build                  # Output to ./dist
+galaxy build --outDir ./out   # Custom output
+galaxy build --verbose        # Show details
 ```
 
-### `gastro preview`
+### `galaxy preview`
 Preview production build locally.
 
 ```bash
-gastro preview                # Serve on port 4323
-gastro preview --port 8080    # Custom port
-gastro preview --open         # Auto-open browser
+galaxy preview                # Serve on port 4323
+galaxy preview --port 8080    # Custom port
+galaxy preview --open         # Auto-open browser
 ```
 
-### `gastro add [integration]`
+### `galaxy add [integration]`
 Add integrations to your project.
 
 ```bash
-gastro add tailwind           # Add Tailwind CSS
-gastro add                    # Interactive selection
+galaxy add tailwind           # Add Tailwind CSS
+galaxy add                    # Interactive selection
 ```
 
 **Available:** react, vue, svelte, tailwind, sitemap
 
-### `gastro check`
+### `galaxy check`
 Validate your project for errors.
 
 ```bash
-gastro check                  # Check all .gxc files
-gastro check --verbose        # Show details
+galaxy check                  # Check all .gxc files
+galaxy check --verbose        # Show details
 ```
 
-### `gastro info`
+### `galaxy info`
 Display environment information.
 
 ```bash
-gastro info
+galaxy info
 ```
 
-### `gastro sync`
+### `galaxy sync`
 Sync types and configuration.
 
 ```bash
-gastro sync
+galaxy sync
 ```
 
-### `gastro docs`
+### `galaxy docs`
 Open documentation in browser.
 
 ```bash
-gastro docs
+galaxy docs
 ```
 
 ## Project Structure
@@ -130,7 +130,7 @@ my-project/
 │   └── Layout.gxc
 ├── public/            # Static assets
 │   └── style.css
-├── gastro.config.json # Configuration
+├── galaxy.config.json # Configuration
 └── package.json       # NPM dependencies
 ```
 
@@ -143,7 +143,7 @@ title: string = "My Page"
 
 <Layout title={title}>
   <main>
-    <h1>Welcome to Gastro!</h1>
+    <h1>Welcome to Galaxy!</h1>
     <p>Fast, Go-powered web framework</p>
   </main>
 </Layout>
@@ -156,13 +156,13 @@ title: string = "My Page"
 </style>
 
 <script>
-  console.log('Hello from Gastro!');
+  console.log('Hello from Galaxy!');
 </script>
 ```
 
 ## Configuration
 
-`gastro.config.json`:
+`galaxy.config.json`:
 
 ```json
 {
@@ -196,14 +196,14 @@ See `examples/` directory:
 
 ```bash
 # Build from source
-go build -o gastro ./cmd/gastro
+go build -o galaxy ./cmd/galaxy
 
 # Run tests
 go test ./...
 
 # Build example
 cd examples/basic
-gastro build
+galaxy build
 ```
 
 ## Features

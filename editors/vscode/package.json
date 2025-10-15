@@ -3,7 +3,7 @@
   "displayName": "GXC Language Support",
   "description": "Syntax highlighting and language support for .gxc files",
   "version": "0.1.0",
-  "publisher": "gastro",
+  "publisher": "galaxy",
   "engines": {
     "vscode": "^1.75.0"
   },
@@ -47,7 +47,7 @@
         "gxc.lsp.serverPath": {
           "type": "string",
           "default": "",
-          "description": "Path to gastro lsp-server binary"
+          "description": "Path to galaxy lsp-server binary"
         }
       }
     }

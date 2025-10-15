@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "gastro dev",
-    "build": "gastro build",
-    "preview": "gastro preview"
+    "dev": "galaxy dev",
+    "build": "galaxy build",
+    "preview": "galaxy preview"
   }
 }

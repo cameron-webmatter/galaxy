@@ -1,10 +1,10 @@
 ---
-title: "Welcome to Gastro"
+title: "Welcome to Galaxy"
 ---
 
 <Layout title={title}>
 	<main>
-		<h1>🚀 Welcome to Gastro</h1>
+		<h1>🚀 Welcome to Galaxy</h1>
 		<p>Fast, Go-powered web framework</p>
 		<p>Edit <code>pages/index.gxc</code> to get started.</p>
 	</main>

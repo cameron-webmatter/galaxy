@@ -10,7 +10,7 @@ import (
 	"syscall"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/gastro/gastro/pkg/server"
+	"github.com/galaxy/galaxy/pkg/server"
 	"github.com/spf13/cobra"
 )
 

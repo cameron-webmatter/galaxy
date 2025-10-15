@@ -1,12 +1,12 @@
 # GXC Language Support for VS Code
 
-Syntax highlighting and language server support for `.gxc` files (Gastro components).
+Syntax highlighting and language server support for `.gxc` files (Galaxy components).
 
 ## Features
 
 - **Syntax Highlighting**: Multi-layered highlighting for Go frontmatter, HTML, CSS, and JavaScript
 - **Diagnostics**: Real-time error checking for Go syntax and undefined variables
-- **Auto-completion**: Variables from frontmatter, gastro directives
+- **Auto-completion**: Variables from frontmatter, galaxy directives
 - **Hover Info**: Type information and values for variables
 
 ## Installation
@@ -15,8 +15,8 @@ Syntax highlighting and language server support for `.gxc` files (Gastro compone
 
 1. Build LSP server:
 ```bash
-cd /path/to/gastro
-go build -o gastro ./cmd/gastro
+cd /path/to/galaxy
+go build -o galaxy ./cmd/galaxy
 ```
 
 2. Install extension dependencies:
@@ -40,12 +40,12 @@ code --install-extension gxc-language-0.1.0.vsix
 
 ## Configuration
 
-Set path to `gastro` binary in VS Code settings:
+Set path to `galaxy` binary in VS Code settings:
 
 ```json
 {
   "gxc.lsp.enable": true,
-  "gxc.lsp.serverPath": "/path/to/gastro"
+  "gxc.lsp.serverPath": "/path/to/galaxy"
 }
 ```
 
@@ -54,7 +54,7 @@ Set path to `gastro` binary in VS Code settings:
 - **Frontmatter** (Go code between `---`): Full Go syntax highlighting
 - **Template** (HTML): Standard HTML + custom directives
 - **Expressions** (`{variable}`): Go expression highlighting
-- **Directives** (`gastro:if`, `gastro:for`): Custom attributes
+- **Directives** (`galaxy:if`, `galaxy:for`): Custom attributes
 - **Scripts** (`<script>`): JavaScript highlighting
 - **Styles** (`<style>`): CSS highlighting
 
@@ -67,7 +67,7 @@ var items = []string{"A", "B", "C"}
 ---
 <h1>{title}</h1>
 <ul>
-  <li gastro:for={item in items}>{item}</li>
+  <li galaxy:for={item in items}>{item}</li>
 </ul>
 
 <style scoped>

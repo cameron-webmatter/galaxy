@@ -1,11 +1,11 @@
 # {{.ProjectName}}
 
-A portfolio built with Gastro
+A portfolio built with Galaxy
 
 ## Commands
 
 ```bash
-gastro dev      # Start dev server
-gastro build    # Build for production
-gastro preview  # Preview build
+galaxy dev      # Start dev server
+galaxy build    # Build for production
+galaxy preview  # Preview build
 ```

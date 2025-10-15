@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gastro/gastro/pkg/parser"
+	"github.com/galaxy/galaxy/pkg/parser"
 )
 
 type Bundler struct {

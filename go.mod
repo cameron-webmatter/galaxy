@@ -1,4 +1,4 @@
-module github.com/gastro/gastro
+module github.com/galaxy/galaxy
 
 go 1.23
 

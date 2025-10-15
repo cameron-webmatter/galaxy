@@ -16,7 +16,7 @@ title: string
 	</nav>
 	<slot />
 	<footer>
-		<p>Built with Gastro 🚀</p>
+		<p>Built with Galaxy 🚀</p>
 	</footer>
 </body>
 </html>

@@ -15,17 +15,17 @@ public/       # Static assets
 - File-based routing
 - Component composition with auto-import
 - Scoped CSS
-- Template directives (`gastro:if`, `gastro:for`)
+- Template directives (`galaxy:if`, `galaxy:for`)
 - Go frontmatter execution
 
 ## Run
 
 ```bash
 # Dev server
-gastro dev
+galaxy dev
 
 # Build static site
-gastro build
+galaxy build
 ```
 
 ## Routes

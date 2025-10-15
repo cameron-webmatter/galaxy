@@ -9,7 +9,7 @@ posts: [
 <Layout title={title}>
 	<main>
 		<h1>📝 {title}</h1>
-		<p>Welcome to my blog built with Gastro</p>
+		<p>Welcome to my blog built with Galaxy</p>
 
 		<div class="posts">
 			{posts.map(post => (

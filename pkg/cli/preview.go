@@ -41,14 +41,14 @@ func runPreview(cmd *cobra.Command, args []string) error {
 
 	distDir := filepath.Join(cwd, "dist")
 	if _, err := os.Stat(distDir); os.IsNotExist(err) {
-		return fmt.Errorf("dist directory not found. Run 'gastro build' first")
+		return fmt.Errorf("dist directory not found. Run 'galaxy build' first")
 	}
 
 	fs := http.FileServer(http.Dir(distDir))
 	http.Handle("/", fs)
 
 	addr := fmt.Sprintf("%s:%d", previewHost, previewPort)
-	
+
 	if !silent {
 		fmt.Printf("🔍 Preview server running at http://%s\n", addr)
 		fmt.Printf("📂 Serving: %s\n", distDir)

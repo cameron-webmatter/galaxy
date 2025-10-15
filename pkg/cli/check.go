@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gastro/gastro/pkg/parser"
+	"github.com/galaxy/galaxy/pkg/parser"
 	"github.com/spf13/cobra"
 )
 

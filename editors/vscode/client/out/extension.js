@@ -43,7 +43,7 @@ function activate(context) {
     if (!config.get('lsp.enable')) {
         return;
     }
-    const serverPath = config.get('lsp.serverPath') || 'gastro';
+    const serverPath = config.get('lsp.serverPath') || 'galaxy';
     const serverOptions = {
         command: serverPath,
         args: ['lsp-server', '--stdio'],

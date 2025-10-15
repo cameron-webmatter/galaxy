@@ -35,7 +35,7 @@ func (i *Island) RenderScript() string {
 
 	return fmt.Sprintf(
 		`<script type="module">
-  import { hydrate } from '/_gastro/hydration.js';
+  import { hydrate } from '/_galaxy/hydration.js';
   hydrate('%s', '%s', %s, '%s');
 </script>`,
 		i.ID,

@@ -13,10 +13,10 @@ Server-side rendering with request context and dynamic routes.
 
 ```bash
 # Dev server
-gastro dev
+galaxy dev
 
 # Static build (no Request context)
-gastro build
+galaxy build
 ```
 
 ## Routes
@@ -29,7 +29,7 @@ gastro build
 ## Request Context
 
 ```gxc
-<div gastro:if={Request}>
+<div galaxy:if={Request}>
     <p>Path: {Request.Path()}</p>
     <p>Method: {Request.Method()}</p>
 </div>

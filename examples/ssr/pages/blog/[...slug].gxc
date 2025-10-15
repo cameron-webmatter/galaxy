@@ -9,7 +9,7 @@ var title = "Blog Post"
 <body>
     <h1>{title}</h1>
     
-    <div gastro:if={Request}>
+    <div galaxy:if={Request}>
         <h2>Catch-all Route</h2>
         <p>Slug: <strong>{slug}</strong></p>
         <p>Path: {Request.Path()}</p>

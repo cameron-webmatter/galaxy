@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/gastro/gastro/pkg/build"
+	"github.com/galaxy/galaxy/pkg/build"
 	"github.com/spf13/cobra"
 )
 
@@ -70,7 +70,7 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	}
 
 	duration := time.Since(start)
-	
+
 	if !silent {
 		fmt.Printf("\n✅ Build complete in %v\n", duration.Round(time.Millisecond))
 		fmt.Printf("📂 Output: %s\n", outDir)

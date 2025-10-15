@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/gastro/gastro/pkg/prompts"
-	"github.com/gastro/gastro/pkg/templates"
+	"github.com/galaxy/galaxy/pkg/prompts"
+	"github.com/galaxy/galaxy/pkg/templates"
 	"github.com/spf13/cobra"
 )
 
 var createCmd = &cobra.Command{
 	Use:   "create [project-name]",
-	Short: "Create a new Gastro project",
-	Long:  `Create a new Gastro project with interactive setup`,
+	Short: "Create a new Galaxy project",
+	Long:  `Create a new Galaxy project with interactive setup`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE:  runCreate,
 }
@@ -22,12 +22,12 @@ func init() {
 }
 
 func runCreate(cmd *cobra.Command, args []string) error {
-	defaultName := "my-gastro-project"
+	defaultName := "my-galaxy-project"
 	if len(args) > 0 {
 		defaultName = args[0]
 	}
 
-	fmt.Println("🚀 Welcome to Gastro!")
+	fmt.Println("🚀 Welcome to Galaxy!")
 	fmt.Println("Let's create your new project")
 
 	config, err := prompts.AskProjectDetails(defaultName)
@@ -74,7 +74,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	if !config.InstallDeps {
 		fmt.Printf("  %s install\n", config.PackageManager)
 	}
-	fmt.Printf("  gastro dev\n")
+	fmt.Printf("  galaxy dev\n")
 
 	return nil
 }

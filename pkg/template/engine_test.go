@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gastro/gastro/pkg/executor"
+	"github.com/galaxy/galaxy/pkg/executor"
 )
 
 func TestRenderExpressions(t *testing.T) {
@@ -76,7 +76,7 @@ func TestRenderIfDirective(t *testing.T) {
 
 	engine := NewEngine(ctx)
 
-	template := `<div gastro:if={show}>Visible</div><div gastro:if={hide}>Hidden</div>`
+	template := `<div galaxy:if={show}>Visible</div><div galaxy:if={hide}>Hidden</div>`
 	result, err := engine.Render(template, nil)
 	if err != nil {
 		t.Fatalf("Render failed: %v", err)
@@ -86,8 +86,8 @@ func TestRenderIfDirective(t *testing.T) {
 		t.Error("Expected visible div")
 	}
 
-	if strings.Contains(result, "gastro:if") {
-		t.Errorf("Result should not contain gastro:if, got: %s", result)
+	if strings.Contains(result, "galaxy:if") {
+		t.Errorf("Result should not contain galaxy:if, got: %s", result)
 	}
 }
 
@@ -97,7 +97,7 @@ func TestRenderForDirective(t *testing.T) {
 
 	engine := NewEngine(ctx)
 
-	template := `<ul><li gastro:for={item in items}>{item}</li></ul>`
+	template := `<ul><li galaxy:for={item in items}>{item}</li></ul>`
 	result, err := engine.Render(template, nil)
 	if err != nil {
 		t.Fatalf("Render failed: %v", err)
