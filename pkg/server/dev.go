@@ -22,31 +22,59 @@ import (
 )
 
 type DevServer struct {
-	Router           *router.Router
-	RootDir          string
-	PagesDir         string
-	PublicDir        string
-	Port             int
-	Bundler          *assets.Bundler
-	Compiler         *compiler.ComponentCompiler
-	EndpointCompiler *endpoints.EndpointCompiler
-	Verbose          bool
-	Lifecycle        *lifecycle.Lifecycle
+	Router             *router.Router
+	RootDir            string
+	PagesDir           string
+	PublicDir          string
+	Port               int
+	Bundler            *assets.Bundler
+	Compiler           *compiler.ComponentCompiler
+	EndpointCompiler   *endpoints.EndpointCompiler
+	Verbose            bool
+	Lifecycle          *lifecycle.Lifecycle
+	MiddlewareCompiler *middleware.MiddlewareCompiler
+	LoadedMiddleware   *middleware.LoadedMiddleware
+	MiddlewareChain    *middleware.Chain
+	HasMiddleware      bool
 }
 
 func NewDevServer(rootDir, pagesDir, publicDir string, port int, verbose bool) *DevServer {
 	srcDir := filepath.Dir(pagesDir)
-	return &DevServer{
-		Router:           router.NewRouter(pagesDir),
-		RootDir:          rootDir,
-		PagesDir:         pagesDir,
-		PublicDir:        publicDir,
-		Port:             port,
-		Bundler:          assets.NewBundler(".galaxy"),
-		Compiler:         compiler.NewComponentCompiler(srcDir),
-		EndpointCompiler: endpoints.NewCompiler(rootDir, ".galaxy/endpoints"),
-		Verbose:          verbose,
+	srv := &DevServer{
+		Router:             router.NewRouter(pagesDir),
+		RootDir:            rootDir,
+		PagesDir:           pagesDir,
+		PublicDir:          publicDir,
+		Port:               port,
+		Bundler:            assets.NewBundler(".galaxy"),
+		Compiler:           compiler.NewComponentCompiler(srcDir),
+		EndpointCompiler:   endpoints.NewCompiler(rootDir, ".galaxy/endpoints"),
+		MiddlewareCompiler: middleware.NewCompiler(rootDir, ".galaxy/middleware"),
+		Verbose:            verbose,
 	}
+
+	middlewarePath := filepath.Join(srcDir, "middleware.go")
+	if _, err := os.Stat(middlewarePath); err == nil {
+		loaded, err := srv.MiddlewareCompiler.Load(middlewarePath)
+		if err != nil {
+			fmt.Printf("⚠ Middleware compile failed: %v\n", err)
+		} else {
+			srv.LoadedMiddleware = loaded
+			srv.MiddlewareChain = middleware.NewChain()
+
+			if loaded.Sequence != nil && len(loaded.Sequence) > 0 {
+				for _, mw := range loaded.Sequence {
+					srv.MiddlewareChain.Use(mw)
+				}
+			} else if loaded.OnRequest != nil {
+				srv.MiddlewareChain.Use(loaded.OnRequest)
+			}
+
+			srv.HasMiddleware = true
+		}
+	}
+
+	return srv
 }
 
 func (s *DevServer) Start() error {
@@ -81,6 +109,30 @@ func (s *DevServer) ReloadRoutes() error {
 	fmt.Println("\n🔄 Routes reloaded:")
 	s.printRoutes()
 
+	return nil
+}
+
+func (s *DevServer) ReloadMiddleware() error {
+	srcDir := filepath.Dir(s.PagesDir)
+	middlewarePath := filepath.Join(srcDir, "middleware.go")
+
+	loaded, err := s.MiddlewareCompiler.Load(middlewarePath)
+	if err != nil {
+		return err
+	}
+
+	s.LoadedMiddleware = loaded
+	s.MiddlewareChain = middleware.NewChain()
+
+	if loaded.Sequence != nil && len(loaded.Sequence) > 0 {
+		for _, mw := range loaded.Sequence {
+			s.MiddlewareChain.Use(mw)
+		}
+	} else if loaded.OnRequest != nil {
+		s.MiddlewareChain.Use(loaded.OnRequest)
+	}
+
+	s.HasMiddleware = true
 	return nil
 }
 
@@ -157,6 +209,21 @@ func (s *DevServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 
 	mwCtx := middleware.NewContext(w, r)
 	mwCtx.Params = params
+
+	if s.HasMiddleware && s.MiddlewareChain != nil {
+		err := s.MiddlewareChain.Execute(mwCtx, func(ctx *middleware.Context) error {
+			if route.IsEndpoint {
+				s.handleEndpoint(route, ctx, params)
+			} else {
+				s.handlePage(route, ctx, params)
+			}
+			return nil
+		})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
 
 	if route.IsEndpoint {
 		s.handleEndpoint(route, mwCtx, params)

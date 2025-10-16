@@ -28,18 +28,13 @@ func LoadPlugin(pluginPath string) (*LoadedMiddleware, error) {
 		return nil, fmt.Errorf("open plugin: %w", err)
 	}
 
+	lm := &LoadedMiddleware{}
+
 	onRequestSym, err := p.Lookup("OnRequest")
-	if err != nil {
-		return nil, fmt.Errorf("lookup OnRequest: %w", err)
-	}
-
-	onRequest, ok := onRequestSym.(func(*Context, func() error) error)
-	if !ok {
-		return nil, fmt.Errorf("OnRequest has wrong signature")
-	}
-
-	lm := &LoadedMiddleware{
-		OnRequest: onRequest,
+	if err == nil {
+		if onRequest, ok := onRequestSym.(func(*Context, func() error) error); ok {
+			lm.OnRequest = onRequest
+		}
 	}
 
 	sequenceSym, err := p.Lookup("Sequence")
@@ -47,6 +42,10 @@ func LoadPlugin(pluginPath string) (*LoadedMiddleware, error) {
 		if seqFunc, ok := sequenceSym.(func() []Middleware); ok {
 			lm.Sequence = seqFunc()
 		}
+	}
+
+	if lm.OnRequest == nil && lm.Sequence == nil {
+		return nil, fmt.Errorf("no OnRequest or Sequence functions found")
 	}
 
 	return lm, nil

@@ -109,6 +109,17 @@ func runDev(cmd *cobra.Command, args []string) error {
 							}
 						}
 					}
+
+					if filepath.Base(event.Name) == "middleware.go" && isUnderDir(event.Name, srcDir) {
+						if !verbose && !silent {
+							fmt.Printf("🔄 Reloading middleware...\n")
+						}
+						if err := srv.ReloadMiddleware(); err != nil && !silent {
+							fmt.Printf("⚠ Middleware reload failed: %v\n", err)
+						} else if !verbose && !silent {
+							fmt.Printf("✅ Middleware reloaded\n")
+						}
+					}
 				}
 			case err := <-watcher.Errors:
 				if !silent {
