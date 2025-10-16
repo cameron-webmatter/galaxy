@@ -25,7 +25,7 @@ func NewComponentCompiler(baseDir string) *ComponentCompiler {
 		BaseDir:  baseDir,
 		Cache:    make(map[string]*parser.Component),
 		Bundler:  assets.NewBundler(".galaxy"),
-		Resolver: NewComponentResolver(baseDir, []string{"components"}),
+		Resolver: NewComponentResolver(baseDir, nil),
 	}
 }
 

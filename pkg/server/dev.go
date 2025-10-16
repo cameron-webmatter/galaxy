@@ -13,6 +13,7 @@ import (
 	"github.com/galaxy/galaxy/pkg/compiler"
 	"github.com/galaxy/galaxy/pkg/endpoints"
 	"github.com/galaxy/galaxy/pkg/executor"
+	"github.com/galaxy/galaxy/pkg/lifecycle"
 	"github.com/galaxy/galaxy/pkg/middleware"
 	"github.com/galaxy/galaxy/pkg/parser"
 	"github.com/galaxy/galaxy/pkg/router"
@@ -30,6 +31,7 @@ type DevServer struct {
 	Compiler         *compiler.ComponentCompiler
 	EndpointCompiler *endpoints.EndpointCompiler
 	Verbose          bool
+	Lifecycle        *lifecycle.Lifecycle
 }
 
 func NewDevServer(rootDir, pagesDir, publicDir string, port int, verbose bool) *DevServer {
@@ -52,6 +54,12 @@ func (s *DevServer) Start() error {
 		return err
 	}
 	s.Router.Sort()
+
+	if s.Lifecycle != nil {
+		if err := s.Lifecycle.ExecuteStartup(); err != nil {
+			return fmt.Errorf("lifecycle startup: %w", err)
+		}
+	}
 
 	http.HandleFunc("/", s.logRequest(s.handleRequest))
 

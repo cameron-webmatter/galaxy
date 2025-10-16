@@ -9,11 +9,12 @@ import (
 )
 
 type ComponentResolver struct {
-	BaseDir       string
-	ComponentDirs []string
-	CurrentFile   string
-	ExplicitPaths map[string]string
-	Cache         map[string]string
+	BaseDir        string
+	ComponentDirs  []string
+	CurrentFile    string
+	ExplicitPaths  map[string]string
+	Cache          map[string]string
+	ComponentIndex map[string]string
 }
 
 func NewComponentResolver(baseDir string, componentDirs []string) *ComponentResolver {
@@ -21,12 +22,41 @@ func NewComponentResolver(baseDir string, componentDirs []string) *ComponentReso
 		componentDirs = []string{"components"}
 	}
 
-	return &ComponentResolver{
-		BaseDir:       baseDir,
-		ComponentDirs: componentDirs,
-		ExplicitPaths: make(map[string]string),
-		Cache:         make(map[string]string),
+	resolver := &ComponentResolver{
+		BaseDir:        baseDir,
+		ComponentDirs:  componentDirs,
+		ExplicitPaths:  make(map[string]string),
+		Cache:          make(map[string]string),
+		ComponentIndex: make(map[string]string),
 	}
+
+	resolver.buildComponentIndex()
+	return resolver
+}
+
+func (r *ComponentResolver) buildComponentIndex() {
+	filepath.Walk(r.BaseDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		if info.IsDir() {
+			dirName := filepath.Base(path)
+			if dirName == "pages" || dirName == "node_modules" || dirName == ".git" || strings.HasPrefix(dirName, ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if filepath.Ext(path) == ".gxc" {
+			baseName := strings.TrimSuffix(filepath.Base(path), ".gxc")
+			if _, exists := r.ComponentIndex[baseName]; !exists {
+				r.ComponentIndex[baseName] = path
+			}
+		}
+
+		return nil
+	})
 }
 
 func (r *ComponentResolver) SetCurrentFile(file string) {
@@ -79,12 +109,9 @@ func (r *ComponentResolver) Resolve(name string) (string, error) {
 		return resolved, nil
 	}
 
-	for _, dir := range r.ComponentDirs {
-		path := filepath.Join(r.BaseDir, dir, name+".gxc")
-		if fileExists(path) {
-			r.Cache[name] = path
-			return path, nil
-		}
+	if path, ok := r.ComponentIndex[name]; ok {
+		r.Cache[name] = path
+		return path, nil
 	}
 
 	if r.CurrentFile != "" {
@@ -95,7 +122,7 @@ func (r *ComponentResolver) Resolve(name string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("component %s not found (searched: %v)", name, r.ComponentDirs)
+	return "", fmt.Errorf("component %s not found in %s", name, r.BaseDir)
 }
 
 func (r *ComponentResolver) resolveImportPath(importPath string) (string, error) {

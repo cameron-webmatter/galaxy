@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/galaxy/galaxy/pkg/adapters"
@@ -47,6 +48,7 @@ func (a *StandaloneAdapter) generateMain(cfg *adapters.BuildConfig) error {
 	imports := a.buildEndpointImports(cfg)
 	hasMiddleware := a.checkMiddleware(cfg)
 	hasSequence := a.checkSequence(cfg)
+	hasLifecycle := a.checkLifecycle(cfg)
 
 	tmpl := template.Must(template.New("main").Parse(mainTemplate))
 
@@ -77,6 +79,7 @@ func (a *StandaloneAdapter) generateMain(cfg *adapters.BuildConfig) error {
 		"EndpointImports": imports,
 		"HasMiddleware":   hasMiddleware,
 		"HasSequence":     hasSequence,
+		"HasLifecycle":    hasLifecycle,
 	}
 
 	return tmpl.Execute(f, data)
@@ -190,6 +193,13 @@ func (a *StandaloneAdapter) checkSequence(cfg *adapters.BuildConfig) bool {
 	return contains(string(content), "func Sequence()")
 }
 
+func (a *StandaloneAdapter) checkLifecycle(cfg *adapters.BuildConfig) bool {
+	projectDir := filepath.Dir(cfg.PagesDir)
+	lifecyclePath := filepath.Join(projectDir, "src", "lifecycle.go")
+	_, err := os.Stat(lifecyclePath)
+	return err == nil
+}
+
 func (a *StandaloneAdapter) copyProjectFiles(cfg *adapters.BuildConfig) error {
 	pagesOutDir := filepath.Join(cfg.ServerDir, "pages")
 	if err := os.MkdirAll(pagesOutDir, 0755); err != nil {
@@ -217,26 +227,32 @@ func (a *StandaloneAdapter) copyProjectFiles(cfg *adapters.BuildConfig) error {
 		})
 	}
 
-	componentsDir := projectDir
-	componentsPath := filepath.Join(componentsDir, "components")
-
-	if _, err := os.Stat(componentsPath); err == nil {
-		componentsOut := filepath.Join(cfg.ServerDir, "components")
-		if err := os.MkdirAll(componentsOut, 0755); err != nil {
-			return err
+	filepath.Walk(projectDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
 		}
 
-		filepath.Walk(componentsPath, func(path string, info os.FileInfo, err error) error {
-			if err != nil || info.IsDir() {
-				return err
+		if info.IsDir() {
+			dirName := filepath.Base(path)
+			if path == projectDir {
+				return nil
 			}
-			relPath, _ := filepath.Rel(componentsPath, path)
-			destPath := filepath.Join(componentsOut, relPath)
+			if dirName == "src" || dirName == "pages" || dirName == "node_modules" || dirName == ".git" || dirName == "dist" || strings.HasPrefix(dirName, ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if filepath.Ext(path) == ".gxc" {
+			relPath, _ := filepath.Rel(projectDir, path)
+			destPath := filepath.Join(cfg.ServerDir, relPath)
 			os.MkdirAll(filepath.Dir(destPath), 0755)
 			data, _ := os.ReadFile(path)
-			return os.WriteFile(destPath, data, 0644)
-		})
-	}
+			os.WriteFile(destPath, data, 0644)
+		}
+
+		return nil
+	})
 
 	return filepath.Walk(cfg.PagesDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -329,12 +345,15 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/galaxy/galaxy/pkg/compiler"
 	"github.com/galaxy/galaxy/pkg/endpoints"
 	"github.com/galaxy/galaxy/pkg/executor"
+	"github.com/galaxy/galaxy/pkg/lifecycle"
 	"github.com/galaxy/galaxy/pkg/middleware"
 	"github.com/galaxy/galaxy/pkg/parser"
 	"github.com/galaxy/galaxy/pkg/router"
@@ -347,6 +366,9 @@ import (
 	{{end}}
 	{{if .HasMiddleware}}
 	usermw "galaxy-server/src"
+	{{end}}
+	{{if .HasLifecycle}}
+	userlc "galaxy-server/src"
 	{{end}}
 )
 
@@ -388,6 +410,26 @@ func main() {
 
 	manifestPath := filepath.Join(baseDir, "_assets", "wasm-manifest.json")
 	wasmManifest, _ = wasm.LoadManifest(manifestPath)
+
+	{{if .HasLifecycle}}
+	lc := lifecycle.NewLifecycle()
+	lc.Register(userlc.Lifecycle())
+	
+	if err := lc.ExecuteStartup(); err != nil {
+		log.Fatalf("Startup failed: %v", err)
+	}
+	
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		log.Println("Shutting down gracefully...")
+		if err := lc.ExecuteShutdown(); err != nil {
+			log.Printf("Shutdown error: %v", err)
+		}
+		os.Exit(0)
+	}()
+	{{end}}
 
 	http.HandleFunc("/", handleRequest)
 

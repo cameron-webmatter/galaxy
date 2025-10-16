@@ -18,15 +18,16 @@ const (
 )
 
 type Config struct {
-	Site           string         `toml:"site"`
-	Base           string         `toml:"base"`
-	OutDir         string         `toml:"outDir"`
-	SrcDir         string         `toml:"srcDir"`
-	PackageManager string         `toml:"packageManager"`
-	Output         OutputConfig   `toml:"output"`
-	Server         ServerConfig   `toml:"server"`
-	Adapter        AdapterConfig  `toml:"adapter"`
-	Plugins        []PluginConfig `toml:"plugins"`
+	Site           string          `toml:"site"`
+	Base           string          `toml:"base"`
+	OutDir         string          `toml:"outDir"`
+	SrcDir         string          `toml:"srcDir"`
+	PackageManager string          `toml:"packageManager"`
+	Output         OutputConfig    `toml:"output"`
+	Server         ServerConfig    `toml:"server"`
+	Adapter        AdapterConfig   `toml:"adapter"`
+	Lifecycle      LifecycleConfig `toml:"lifecycle"`
+	Plugins        []PluginConfig  `toml:"plugins"`
 }
 
 type OutputConfig struct {
@@ -41,6 +42,12 @@ type ServerConfig struct {
 type AdapterConfig struct {
 	Name   AdapterName            `toml:"name"`
 	Config map[string]interface{} `toml:"config"`
+}
+
+type LifecycleConfig struct {
+	Enabled         bool `toml:"enabled"`
+	StartupTimeout  int  `toml:"startupTimeout"`
+	ShutdownTimeout int  `toml:"shutdownTimeout"`
 }
 
 type PluginConfig struct {
@@ -65,6 +72,11 @@ func DefaultConfig() *Config {
 		Adapter: AdapterConfig{
 			Name:   AdapterStandalone,
 			Config: make(map[string]interface{}),
+		},
+		Lifecycle: LifecycleConfig{
+			Enabled:         true,
+			StartupTimeout:  30,
+			ShutdownTimeout: 10,
 		},
 	}
 }
