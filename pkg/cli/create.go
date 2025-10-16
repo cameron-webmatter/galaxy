@@ -9,6 +9,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	noInteractive bool
+)
+
 var createCmd = &cobra.Command{
 	Use:   "create [project-name]",
 	Short: "Create a new Galaxy project",
@@ -18,6 +22,7 @@ var createCmd = &cobra.Command{
 }
 
 func init() {
+	createCmd.Flags().BoolVar(&noInteractive, "no-interactive", false, "Skip prompts and use defaults (pnpm, minimal template, yes to all)")
 	rootCmd.AddCommand(createCmd)
 }
 
@@ -27,12 +32,19 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		defaultName = args[0]
 	}
 
-	fmt.Println("🚀 Welcome to Galaxy!")
-	fmt.Println("Let's create your new project")
+	var config *prompts.ProjectConfig
+	var err error
 
-	config, err := prompts.AskProjectDetails(defaultName)
-	if err != nil {
-		return err
+	if noInteractive {
+		config = prompts.GetDefaultConfig(defaultName)
+	} else {
+		fmt.Println("🚀 Welcome to Galaxy!")
+		fmt.Println("Let's create your new project")
+
+		config, err = prompts.AskProjectDetails(defaultName)
+		if err != nil {
+			return err
+		}
 	}
 
 	projectPath := filepath.Join(".", config.Name)

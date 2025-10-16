@@ -12,6 +12,16 @@ type ProjectConfig struct {
 	PackageManager string
 }
 
+func GetDefaultConfig(projectName string) *ProjectConfig {
+	return &ProjectConfig{
+		Name:           projectName,
+		Template:       "minimal",
+		InstallDeps:    true,
+		InitGit:        true,
+		PackageManager: "pnpm",
+	}
+}
+
 func AskProjectDetails(defaultName string) (*ProjectConfig, error) {
 	config := &ProjectConfig{}
 
