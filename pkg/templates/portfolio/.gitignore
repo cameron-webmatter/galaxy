@@ -1,8 +1,10 @@
 # build output
 dist/
 
-# generated types
+# dev server temporary files
 .galaxy/
+
+# legacy
 .gastro/
 
 # dependencies
