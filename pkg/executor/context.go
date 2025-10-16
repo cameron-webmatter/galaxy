@@ -319,6 +319,15 @@ func (c *Context) evalSelectorExpr(expr *ast.SelectorExpr) (interface{}, error) 
 	}
 
 	v := reflect.ValueOf(x)
+
+	// Dereference pointers
+	for v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return nil, fmt.Errorf("nil pointer dereference")
+		}
+		v = v.Elem()
+	}
+
 	if v.Kind() == reflect.Struct {
 		field := v.FieldByName(expr.Sel.Name)
 		if field.IsValid() {
