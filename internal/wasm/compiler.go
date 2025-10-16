@@ -176,7 +176,15 @@ func prepareScript(script, hash string, useTinyGo bool) (string, error) {
 	}
 
 	if !hasMain {
-		funcs, execCode := separateFunctionsFromCode(body)
+		vars, funcs, execCode := separateFunctionsFromCode(body)
+
+		for _, v := range vars {
+			final.WriteString(v)
+			final.WriteString("\n")
+		}
+		if len(vars) > 0 {
+			final.WriteString("\n")
+		}
 
 		for _, fn := range funcs {
 			final.WriteString(fn)
@@ -239,7 +247,7 @@ func containsMainFunc(body string) bool {
 	return false
 }
 
-func separateFunctionsFromCode(body string) (functions []string, executableCode string) {
+func separateFunctionsFromCode(body string) (variables []string, functions []string, executableCode string) {
 	lines := strings.Split(body, "\n")
 	var funcLines []string
 	var execLines []string
@@ -271,12 +279,16 @@ func separateFunctionsFromCode(body string) (functions []string, executableCode 
 		}
 
 		if trimmed != "" {
-			execLines = append(execLines, line)
+			if strings.HasPrefix(trimmed, "var ") || strings.HasPrefix(trimmed, "const ") {
+				variables = append(variables, line)
+			} else {
+				execLines = append(execLines, line)
+			}
 		}
 	}
 
 	executableCode = strings.Join(execLines, "\n")
-	return functions, executableCode
+	return variables, functions, executableCode
 }
 
 func indentCode(code string) string {

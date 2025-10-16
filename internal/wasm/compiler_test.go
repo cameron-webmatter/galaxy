@@ -417,6 +417,60 @@ fmt.Println(result)`
 	}
 }
 
+func TestPrepareScriptWithVariables(t *testing.T) {
+	script := `import "syscall/js"
+
+var counter js.Value
+var currentState = "active"
+
+func increment() {
+	counter.Set("value", counter.Get("value").Int()+1)
+}
+
+counter = js.Global().Get("document").Call("getElementById", "counter")
+increment()`
+
+	result, err := prepareScript(script, "test1234", false)
+	if err != nil {
+		t.Fatalf("prepareScript failed: %v", err)
+	}
+
+	if !strings.Contains(result, "var counter js.Value") {
+		t.Error("Expected counter variable at package level")
+	}
+
+	if !strings.Contains(result, `var currentState = "active"`) {
+		t.Error("Expected currentState variable at package level")
+	}
+
+	varIdx := strings.Index(result, "var counter")
+	funcIdx := strings.Index(result, "func increment")
+	mainIdx := strings.Index(result, "func main()")
+
+	if varIdx == -1 || funcIdx == -1 || mainIdx == -1 {
+		t.Error("Expected all declarations to be present")
+	}
+
+	if varIdx >= funcIdx {
+		t.Error("Expected variables before functions")
+	}
+
+	if funcIdx >= mainIdx {
+		t.Error("Expected functions before main")
+	}
+
+	lines := strings.Split(result, "\n")
+	inMain := false
+	for _, line := range lines {
+		if strings.Contains(line, "func main()") {
+			inMain = true
+		}
+		if inMain && (strings.HasPrefix(strings.TrimSpace(line), "var counter") || strings.HasPrefix(strings.TrimSpace(line), "var currentState")) {
+			t.Error("Variables should not be inside main function")
+		}
+	}
+}
+
 func TestFindModuleRoot(t *testing.T) {
 	root := findModuleRoot()
 
