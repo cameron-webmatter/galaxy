@@ -3,6 +3,7 @@ package build
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -160,6 +161,11 @@ func (b *SSGBuilder) buildStaticRoute(route *router.Route) error {
 		return err
 	}
 
+	wasmAssets, err := b.Bundler.BundleWasmScripts(comp, route.FilePath)
+	if err != nil {
+		return err
+	}
+
 	scopeID := ""
 	for _, style := range allStyles {
 		if style.Scoped {
@@ -168,7 +174,7 @@ func (b *SSGBuilder) buildStaticRoute(route *router.Route) error {
 		}
 	}
 
-	rendered = b.Bundler.InjectAssets(rendered, cssPath, jsPath, scopeID)
+	rendered = b.Bundler.InjectAssetsWithWasm(rendered, cssPath, jsPath, scopeID, wasmAssets)
 
 	outPath := b.getOutputPath(route.Pattern)
 	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
@@ -197,7 +203,7 @@ func (b *SSGBuilder) copyPublicAssets() error {
 		return nil
 	}
 
-	return filepath.Walk(b.PublicDir, func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(b.PublicDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -222,5 +228,41 @@ func (b *SSGBuilder) copyPublicAssets() error {
 		}
 
 		return os.WriteFile(destPath, data, info.Mode())
-	})
+	}); err != nil {
+		return err
+	}
+
+	return b.copyWasmExec()
+}
+
+func (b *SSGBuilder) copyWasmExec() error {
+	goRoot := os.Getenv("GOROOT")
+	if goRoot == "" {
+		cmd := exec.Command("go", "env", "GOROOT")
+		output, err := cmd.Output()
+		if err != nil {
+			return nil
+		}
+		goRoot = strings.TrimSpace(string(output))
+	}
+
+	if goRoot == "" {
+		return nil
+	}
+
+	wasmExecSrc := filepath.Join(goRoot, "misc", "wasm", "wasm_exec.js")
+	if _, err := os.Stat(wasmExecSrc); os.IsNotExist(err) {
+		wasmExecSrc = filepath.Join(goRoot, "lib", "wasm", "wasm_exec.js")
+		if _, err := os.Stat(wasmExecSrc); os.IsNotExist(err) {
+			return nil
+		}
+	}
+
+	data, err := os.ReadFile(wasmExecSrc)
+	if err != nil {
+		return nil
+	}
+
+	wasmExecDest := filepath.Join(b.OutDir, "wasm_exec.js")
+	return os.WriteFile(wasmExecDest, data, 0644)
 }

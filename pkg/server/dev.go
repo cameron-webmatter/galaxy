@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/galaxy/galaxy/internal/assets"
@@ -38,9 +40,9 @@ func NewDevServer(rootDir, pagesDir, publicDir string, port int, verbose bool) *
 		PagesDir:         pagesDir,
 		PublicDir:        publicDir,
 		Port:             port,
-		Bundler:          assets.NewBundler(".tmp"),
+		Bundler:          assets.NewBundler(".galaxy"),
 		Compiler:         compiler.NewComponentCompiler(srcDir),
-		EndpointCompiler: endpoints.NewCompiler(rootDir, ".tmp/endpoints"),
+		EndpointCompiler: endpoints.NewCompiler(rootDir, ".galaxy/endpoints"),
 		Verbose:          verbose,
 	}
 }
@@ -129,6 +131,11 @@ func getStatusColor(status int) string {
 }
 
 func (s *DevServer) handleRequest(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/wasm_exec.js" {
+		s.serveWasmExec(w, r)
+		return
+	}
+
 	if filepath.Ext(r.URL.Path) != "" {
 		s.serveStatic(w, r)
 		return
@@ -252,17 +259,28 @@ func (s *DevServer) handlePage(route *router.Route, mwCtx *middleware.Context, p
 }
 
 func (s *DevServer) serveStatic(w http.ResponseWriter, r *http.Request) {
-	tmpPath := filepath.Join(s.Bundler.OutDir, r.URL.Path)
-	if _, err := os.Stat(tmpPath); err == nil {
-		http.ServeFile(w, r, tmpPath)
+	galaxyPath := filepath.Join(".galaxy", r.URL.Path)
+	if _, err := os.Stat(galaxyPath); err == nil {
+		http.ServeFile(w, r, galaxyPath)
 		return
 	}
 
 	publicPath := filepath.Join(s.PublicDir, r.URL.Path)
-	if _, err := os.Stat(publicPath); err == nil {
-		http.ServeFile(w, r, publicPath)
-		return
+	http.ServeFile(w, r, publicPath)
+}
+
+func (s *DevServer) serveWasmExec(w http.ResponseWriter, r *http.Request) {
+	goRoot := os.Getenv("GOROOT")
+	if goRoot == "" {
+		cmd := exec.Command("go", "env", "GOROOT")
+		output, _ := cmd.Output()
+		goRoot = strings.TrimSpace(string(output))
 	}
 
-	http.NotFound(w, r)
+	wasmExecPath := filepath.Join(goRoot, "misc", "wasm", "wasm_exec.js")
+	if _, err := os.Stat(wasmExecPath); os.IsNotExist(err) {
+		wasmExecPath = filepath.Join(goRoot, "lib", "wasm", "wasm_exec.js")
+	}
+
+	http.ServeFile(w, r, wasmExecPath)
 }

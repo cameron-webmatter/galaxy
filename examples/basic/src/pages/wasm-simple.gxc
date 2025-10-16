@@ -1,0 +1,45 @@
+---
+var title = "Simple WASM Demo"
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{title}</title>
+</head>
+<body>
+    <h1>{title}</h1>
+    <button id="btn">Click Me</button>
+    <p id="output">Count: 0</p>
+</body>
+</html>
+
+<style scoped>
+body {
+    font-family: sans-serif;
+    padding: 2rem;
+}
+button {
+    padding: 1rem 2rem;
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+#output {
+    font-size: 1.5rem;
+    margin-top: 1rem;
+}
+</style>
+
+<script>
+import "fmt"
+import "github.com/galaxy/galaxy/pkg/wasmdom"
+
+clicks := 0
+btn := wasmdom.GetElementById("btn")
+output := wasmdom.GetElementById("output")
+
+btn.AddEventListener("click", func() {
+    clicks++
+    output.SetTextContent(fmt.Sprintf("Count: %d", clicks))
+})
+</script>

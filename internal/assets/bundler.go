@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/galaxy/galaxy/internal/wasm"
 	"github.com/galaxy/galaxy/pkg/parser"
 	"github.com/galaxy/galaxy/pkg/plugins"
 )
@@ -14,10 +15,21 @@ import (
 type Bundler struct {
 	OutDir        string
 	PluginManager *plugins.Manager
+	WasmCompiler  *wasm.Compiler
+}
+
+type WasmAsset struct {
+	WasmPath   string
+	LoaderPath string
 }
 
 func NewBundler(outDir string) *Bundler {
-	return &Bundler{OutDir: outDir}
+	compiler := wasm.NewCompiler(filepath.Join(outDir, ".galaxy", "wasm-build"), filepath.Join(outDir, "_assets", "wasm"))
+	compiler.UseTinyGo = false
+	return &Bundler{
+		OutDir:       outDir,
+		WasmCompiler: compiler,
+	}
 }
 
 func (b *Bundler) BundleStyles(comp *parser.Component, pagePath string) (string, error) {
@@ -68,6 +80,9 @@ func (b *Bundler) BundleScripts(comp *parser.Component, pagePath string) (string
 
 	var combined strings.Builder
 	for i, script := range comp.Scripts {
+		if script.Language == "go" {
+			continue
+		}
 		if i > 0 {
 			combined.WriteString("\n")
 		}
@@ -84,6 +99,10 @@ func (b *Bundler) BundleScripts(comp *parser.Component, pagePath string) (string
 		combined.WriteString(content)
 	}
 
+	if combined.Len() == 0 {
+		return "", nil
+	}
+
 	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(combined.String())))[:8]
 	filename := fmt.Sprintf("script-%s.js", hash)
 	outPath := filepath.Join(b.OutDir, "_assets", filename)
@@ -97,6 +116,52 @@ func (b *Bundler) BundleScripts(comp *parser.Component, pagePath string) (string
 	}
 
 	return "/_assets/" + filename, nil
+}
+
+func (b *Bundler) BundleWasmScripts(comp *parser.Component, pagePath string) ([]WasmAsset, error) {
+	var assets []WasmAsset
+
+	for _, script := range comp.Scripts {
+		if script.Language != "go" {
+			continue
+		}
+
+		module, err := b.WasmCompiler.Compile(script.Content, pagePath)
+		if err != nil {
+			return nil, fmt.Errorf("compile wasm: %w", err)
+		}
+
+		wasmFilename := fmt.Sprintf("script-%s.wasm", module.Hash)
+		loaderFilename := fmt.Sprintf("script-%s-loader.js", module.Hash)
+
+		wasmDest := filepath.Join(b.OutDir, "_assets", "wasm", wasmFilename)
+		if err := os.MkdirAll(filepath.Dir(wasmDest), 0755); err != nil {
+			return nil, err
+		}
+
+		if module.WasmPath != wasmDest {
+			data, err := os.ReadFile(module.WasmPath)
+			if err != nil {
+				return nil, err
+			}
+			if err := os.WriteFile(wasmDest, data, 0644); err != nil {
+				return nil, err
+			}
+		}
+
+		loaderContent := wasm.GenerateLoader("/_assets/wasm/" + wasmFilename)
+		loaderPath := filepath.Join(b.OutDir, "_assets", loaderFilename)
+		if err := os.WriteFile(loaderPath, []byte(loaderContent), 0644); err != nil {
+			return nil, err
+		}
+
+		assets = append(assets, WasmAsset{
+			WasmPath:   "/_assets/wasm/" + wasmFilename,
+			LoaderPath: "/_assets/" + loaderFilename,
+		})
+	}
+
+	return assets, nil
 }
 
 func (b *Bundler) scopeCSS(css, pagePath string) string {
@@ -134,6 +199,10 @@ func (b *Bundler) GenerateScopeID(pagePath string) string {
 }
 
 func (b *Bundler) InjectAssets(html, cssPath, jsPath, scopeID string) string {
+	return b.InjectAssetsWithWasm(html, cssPath, jsPath, scopeID, nil)
+}
+
+func (b *Bundler) InjectAssetsWithWasm(html, cssPath, jsPath, scopeID string, wasmAssets []WasmAsset) string {
 	if scopeID != "" {
 		bodyScopeAttr := fmt.Sprintf(`data-gxc-%s`, scopeID)
 		html = strings.Replace(html, "<body>", fmt.Sprintf(`<body %s>`, bodyScopeAttr), 1)
@@ -142,6 +211,16 @@ func (b *Bundler) InjectAssets(html, cssPath, jsPath, scopeID string) string {
 	if cssPath != "" {
 		cssTag := fmt.Sprintf(`<link rel="stylesheet" href="%s">`, cssPath)
 		html = strings.Replace(html, "</head>", cssTag+"\n</head>", 1)
+	}
+
+	if len(wasmAssets) > 0 {
+		wasmExecTag := `<script src="/wasm_exec.js"></script>`
+		html = strings.Replace(html, "</body>", wasmExecTag+"\n</body>", 1)
+
+		for _, asset := range wasmAssets {
+			loaderTag := fmt.Sprintf(`<script src="%s"></script>`, asset.LoaderPath)
+			html = strings.Replace(html, "</body>", loaderTag+"\n</body>", 1)
+		}
 	}
 
 	if jsPath != "" {

@@ -166,9 +166,20 @@ title: string = "My Page"
 </style>
 
 <script>
-  console.log('Hello from Galaxy!');
+import "fmt"
+import "github.com/galaxy/galaxy/pkg/wasmdom"
+
+count := 0
+btn := wasmdom.GetElementById("myButton")
+
+btn.AddEventListener("click", func() {
+    count++
+    wasmdom.ConsoleLog(fmt.Sprintf("Clicked %d times", count))
+})
 </script>
 ```
+
+**Note:** Scripts default to Go (compiled to WebAssembly). For JavaScript, use `<script type="module">`.
 
 ## Build Modes
 
@@ -383,13 +394,81 @@ func POST(ctx *endpoints.Context) error {
 
 **Endpoints available at:** `/api/hello`
 
+## WebAssembly Example
+
+Write Go code directly in your components:
+
+```gxc
+---
+var title = "WASM Counter"
+---
+<!DOCTYPE html>
+<html>
+<head><title>{title}</title></head>
+<body>
+  <h1>{title}</h1>
+  <button id="inc">+</button>
+  <span id="count">0</span>
+  <button id="dec">-</button>
+</body>
+</html>
+
+<script>
+import "fmt"
+import "github.com/galaxy/galaxy/pkg/wasmdom"
+
+count := 0
+incBtn := wasmdom.GetElementById("inc")
+decBtn := wasmdom.GetElementById("dec")
+display := wasmdom.GetElementById("count")
+
+incBtn.AddEventListener("click", func() {
+    count++
+    display.SetTextContent(fmt.Sprintf("%d", count))
+})
+
+decBtn.AddEventListener("click", func() {
+    count--
+    display.SetTextContent(fmt.Sprintf("%d", count))
+})
+</script>
+```
+
+No `package main`, no `func main()`, no explicit WASM setup—just Go code that runs in the browser.
+
+### Available DOM APIs (`pkg/wasmdom`)
+
+```go
+// Element selection
+GetElementById(id string) Element
+QuerySelector(selector string) Element
+QuerySelectorAll(selector string) []Element
+CreateElement(tag string) Element
+
+// Element methods
+.SetTextContent(text string)
+.GetTextContent() string
+.SetInnerHTML(html string)
+.AddEventListener(event string, handler func())
+.SetAttribute(name, value string)
+.AddClass(class string)
+.RemoveClass(class string)
+.SetStyle(property, value string)
+
+// Window functions
+ConsoleLog(args ...interface{})
+Alert(message string)
+SetTimeout(callback func(), ms int)
+RequestAnimationFrame(callback func())
+```
+
 ## Examples
 
 See `examples/` directory:
-- `examples/basic` - Static site with multiple pages
+- `examples/basic` - Static site with multiple pages + WASM
 - `examples/ssr` - Full SSR with middleware & endpoints
-- `examples/ssr-server` - Server-only mode demo
-- `examples/hybrid` - Mixed static/dynamic pages
+- `examples/ssr-server` - Server-only mode demo + WASM
+- `examples/hybrid` - Mixed static/dynamic pages + WASM
 
 ## Development
 
@@ -421,8 +500,16 @@ galaxy build
 ### Assets
 - Automatic CSS bundling
 - Script bundling with hydration
+- **Go → WebAssembly compilation** for client-side interactivity
 - Static file serving from `public/`
 - Asset optimization
+
+### Client-Side Interactivity (WebAssembly)
+- Write Go code in `<script>` tags (no `package` or `func main()` needed)
+- Automatic compilation to WebAssembly
+- DOM manipulation via `pkg/wasmdom` library
+- Works in all build modes (static, server, hybrid)
+- ~10-13KB WASM modules
 
 ### Hot Reload
 - File watching for pages & components

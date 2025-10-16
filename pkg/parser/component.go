@@ -35,6 +35,7 @@ type Directive struct {
 type Script struct {
 	Content  string
 	IsModule bool
+	Language string
 }
 
 type Style struct {
@@ -87,10 +88,21 @@ func Parse(content string) (*Component, error) {
 	scriptMatches := scriptRegex.FindAllStringSubmatch(content, -1)
 	for _, match := range scriptMatches {
 		attrs := match[1]
+		scriptContent := strings.TrimSpace(match[2])
 		isModule := strings.Contains(attrs, "type=\"module\"") || strings.Contains(attrs, `type='module'`)
+		isJS := strings.Contains(attrs, "type=\"javascript\"") || strings.Contains(attrs, `type='javascript'`)
+
+		language := "go"
+		if isModule || isJS {
+			language = "javascript"
+		} else {
+			language = detectLanguage(scriptContent)
+		}
+
 		comp.Scripts = append(comp.Scripts, Script{
-			Content:  strings.TrimSpace(match[2]),
+			Content:  scriptContent,
 			IsModule: isModule,
+			Language: language,
 		})
 	}
 	content = scriptRegex.ReplaceAllString(content, "")
@@ -138,6 +150,31 @@ func parseImports(frontmatter string) []Import {
 	}
 
 	return imports
+}
+
+func detectLanguage(content string) string {
+	jsPatterns := []string{"import ", "export ", "const ", "let ", "console.log", "=>"}
+	goPatterns := []string{"wasmdom.", ":=", "func ", "package "}
+
+	jsScore := 0
+	goScore := 0
+
+	for _, pattern := range jsPatterns {
+		if strings.Contains(content, pattern) {
+			jsScore++
+		}
+	}
+
+	for _, pattern := range goPatterns {
+		if strings.Contains(content, pattern) {
+			goScore++
+		}
+	}
+
+	if jsScore > goScore {
+		return "javascript"
+	}
+	return "go"
 }
 
 func (c *Component) String() string {

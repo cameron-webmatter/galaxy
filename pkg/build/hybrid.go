@@ -76,6 +76,19 @@ func (b *HybridBuilder) Build() error {
 		}
 
 		b.SSRBuilder.Router.Routes = dynamicRoutes
+
+		if err := b.SSRBuilder.precompileWasmScripts(); err != nil {
+			return fmt.Errorf("precompile wasm: %w", err)
+		}
+
+		if err := b.SSRBuilder.copyWasmAssets(); err != nil {
+			return fmt.Errorf("copy wasm assets: %w", err)
+		}
+
+		if err := b.SSRBuilder.copyWasmExec(); err != nil {
+			return fmt.Errorf("copy wasm exec: %w", err)
+		}
+
 		if err := b.generateServerForDynamicRoutes(serverDir, dynamicRoutes); err != nil {
 			return fmt.Errorf("generate server: %w", err)
 		}

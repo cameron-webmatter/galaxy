@@ -1,0 +1,72 @@
+---
+var title = "WASM Counter Test"
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+</head>
+<body>
+    <header>
+        <h1>{title}</h1>
+        <p>Click the button to test Go WASM</p>
+    </header>
+
+    <main>
+        <div id="counter">
+            <button id="increment">Increment</button>
+            <span id="count">0</span>
+        </div>
+    </main>
+</body>
+</html>
+
+<style scoped>
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+#counter {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin: 2rem 0;
+}
+
+button {
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+#count {
+    font-size: 2rem;
+    font-weight: bold;
+}
+</style>
+
+<script>
+import "fmt"
+import "github.com/galaxy/galaxy/pkg/wasmdom"
+
+count := 0
+btn := wasmdom.GetElementById("increment")
+display := wasmdom.GetElementById("count")
+
+if btn.IsNull() || display.IsNull() {
+	wasmdom.ConsoleError("Elements not found")
+	return
+}
+
+wasmdom.ConsoleLog("Go WASM initialized!")
+
+btn.AddEventListener("click", func() {
+	count++
+	display.SetTextContent(fmt.Sprintf("%d", count))
+})
+</script>

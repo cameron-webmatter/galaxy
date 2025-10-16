@@ -340,6 +340,7 @@ import (
 	"github.com/galaxy/galaxy/pkg/router"
 	"github.com/galaxy/galaxy/pkg/ssr"
 	"github.com/galaxy/galaxy/pkg/template"
+	"github.com/galaxy/galaxy/pkg/wasm"
 
 	{{range .EndpointImports}}
 	{{.Alias}} "{{.Path}}"
@@ -350,11 +351,12 @@ import (
 )
 
 var (
-	rt       *router.Router
-	comp     *compiler.ComponentCompiler
-	baseDir  string
-	pagesDir = "pages"
-	routeMap = map[string]*routeInfo{
+	rt           *router.Router
+	comp         *compiler.ComponentCompiler
+	baseDir      string
+	pagesDir     = "pages"
+	wasmManifest *wasm.WasmManifest
+	routeMap     = map[string]*routeInfo{
 		{{range .Routes}}
 		"{{.Pattern}}": {Pattern: "{{.Pattern}}", FilePath: "pages{{.RelPath}}", IsEndpoint: {{.IsEndpoint}}},
 		{{end}}
@@ -384,6 +386,9 @@ func main() {
 	baseDir = filepath.Dir(exePath)
 	comp = compiler.NewComponentCompiler(baseDir)
 
+	manifestPath := filepath.Join(baseDir, "_assets", "wasm-manifest.json")
+	wasmManifest, _ = wasm.LoadManifest(manifestPath)
+
 	http.HandleFunc("/", handleRequest)
 
 	addr := "{{.Host}}:{{.Port}}"
@@ -395,6 +400,18 @@ func main() {
 }
 
 func handleRequest(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/_assets/") {
+		assetsPath := filepath.Join(baseDir, r.URL.Path)
+		http.ServeFile(w, r, assetsPath)
+		return
+	}
+
+	if r.URL.Path == "/wasm_exec.js" {
+		wasmExecPath := filepath.Join(baseDir, "wasm_exec.js")
+		http.ServeFile(w, r, wasmExecPath)
+		return
+	}
+
 	if filepath.Ext(r.URL.Path) != "" {
 		http.ServeFile(w, r, filepath.Join("{{.PublicDir}}", r.URL.Path))
 		return
@@ -545,6 +562,26 @@ func handlePage(route *routeInfo, mwCtx *middleware.Context) {
 		}
 		styleTag := "<style>" + styleContent + "</style>"
 		rendered = strings.Replace(rendered, "</head>", styleTag+"\n</head>", 1)
+	}
+
+	if wasmManifest != nil {
+		pageAssets, ok := wasmManifest.Assets[route.FilePath]
+		if ok && len(pageAssets.WasmModules) > 0 {
+			wasmExecTag := "<script src=\"/wasm_exec.js\"></script>"
+			rendered = strings.Replace(rendered, "</body>", wasmExecTag+"\n</body>", 1)
+
+			for _, mod := range pageAssets.WasmModules {
+				loaderTag := fmt.Sprintf("<script src=\"%s\"></script>", mod.LoaderPath)
+				rendered = strings.Replace(rendered, "</body>", loaderTag+"\n</body>", 1)
+			}
+		}
+
+		if len(pageAssets.JSScripts) > 0 {
+			for _, jsPath := range pageAssets.JSScripts {
+				jsTag := fmt.Sprintf("<script type=\"module\" src=\"%s\"></script>", jsPath)
+				rendered = strings.Replace(rendered, "</body>", jsTag+"\n</body>", 1)
+			}
+		}
 	}
 
 	mwCtx.Response.Header().Set("Content-Type", "text/html; charset=utf-8")
