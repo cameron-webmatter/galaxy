@@ -25,6 +25,7 @@ func (s *Server) analyze(content string) []protocol.Diagnostic {
 
 	if comp.Frontmatter != "" {
 		ctx := executor.NewContext()
+		ctx.SetLocals(make(map[string]any))
 		if err := ctx.Execute(comp.Frontmatter); err != nil {
 			r := comp.FrontmatterRange
 			diagnostics = append(diagnostics, protocol.Diagnostic{

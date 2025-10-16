@@ -77,6 +77,8 @@ func (c *Context) evalExpr(expr ast.Expr) (interface{}, error) {
 			return val, nil
 		}
 		return nil, fmt.Errorf("undefined variable: %s", e.Name)
+	case *ast.SelectorExpr:
+		return c.evalSelectorExpr(e)
 	case *ast.BinaryExpr:
 		return c.evalBinaryExpr(e)
 	case *ast.UnaryExpr:
@@ -157,6 +159,31 @@ func (c *Context) evalUnaryExpr(expr *ast.UnaryExpr) (interface{}, error) {
 		}
 	}
 	return nil, fmt.Errorf("unsupported unary operator: %v", expr.Op)
+}
+
+func (c *Context) evalSelectorExpr(expr *ast.SelectorExpr) (interface{}, error) {
+	x, err := c.evalExpr(expr.X)
+	if err != nil {
+		return nil, err
+	}
+
+	if m, ok := x.(map[string]interface{}); ok {
+		return m[expr.Sel.Name], nil
+	}
+
+	if m, ok := x.(map[string]any); ok {
+		return m[expr.Sel.Name], nil
+	}
+
+	v := reflect.ValueOf(x)
+	if v.Kind() == reflect.Struct {
+		field := v.FieldByName(expr.Sel.Name)
+		if field.IsValid() {
+			return field.Interface(), nil
+		}
+	}
+
+	return nil, fmt.Errorf("cannot select field %s from type %T", expr.Sel.Name, x)
 }
 
 func (c *Context) evalCallExpr(expr *ast.CallExpr) (interface{}, error) {
