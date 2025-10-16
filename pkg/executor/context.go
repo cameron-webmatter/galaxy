@@ -11,27 +11,42 @@ import (
 )
 
 type Context struct {
-	Variables map[string]interface{}
-	Props     map[string]interface{}
-	Slots     map[string]string
-	Request   interface{}
-	Locals    map[string]any
+	Variables      map[string]interface{}
+	Props          map[string]interface{}
+	Slots          map[string]string
+	Request        interface{}
+	Locals         map[string]any
+	RedirectURL    string
+	RedirectStatus int
+	ShouldRedirect bool
+}
+
+type GalaxyAPI struct {
+	ctx *Context
+}
+
+func (g *GalaxyAPI) Redirect(url string, status int) {
+	g.ctx.RedirectURL = url
+	g.ctx.RedirectStatus = status
+	g.ctx.ShouldRedirect = true
 }
 
 func NewContext() *Context {
-	return &Context{
+	ctx := &Context{
 		Variables: make(map[string]interface{}),
 		Props:     make(map[string]interface{}),
 		Slots:     make(map[string]string),
 		Request:   nil,
 		Locals:    make(map[string]any),
 	}
+	ctx.Variables["Galaxy"] = &GalaxyAPI{ctx: ctx}
+	return ctx
 }
 
 func (c *Context) Execute(code string) error {
 	fset := token.NewFileSet()
 
-	wrappedCode := "package main\n" + code
+	wrappedCode := "package main\nfunc init() {\n" + code + "\n}"
 
 	node, err := parser.ParseFile(fset, "", wrappedCode, parser.AllErrors)
 	if err != nil {
@@ -49,6 +64,107 @@ func (c *Context) Execute(code string) error {
 					}
 				}
 			}
+		}
+		if funcDecl, ok := decl.(*ast.FuncDecl); ok {
+			if funcDecl.Name.Name == "init" && funcDecl.Body != nil {
+				for _, stmt := range funcDecl.Body.List {
+					if err := c.executeStmt(stmt); err != nil {
+						return err
+					}
+					if c.ShouldRedirect {
+						return nil
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func (c *Context) executeStmt(stmt ast.Stmt) error {
+	switch s := stmt.(type) {
+	case *ast.IfStmt:
+		return c.executeIfStmt(s)
+	case *ast.ExprStmt:
+		_, err := c.evalExpr(s.X)
+		return err
+	case *ast.AssignStmt:
+		return c.executeAssignStmt(s)
+	case *ast.DeclStmt:
+		if genDecl, ok := s.Decl.(*ast.GenDecl); ok {
+			if genDecl.Tok == token.VAR {
+				for _, spec := range genDecl.Specs {
+					if valueSpec, ok := spec.(*ast.ValueSpec); ok {
+						if err := c.processVarSpec(valueSpec); err != nil {
+							return err
+						}
+					}
+				}
+			}
+		}
+		return nil
+	default:
+		return nil
+	}
+}
+
+func (c *Context) executeIfStmt(stmt *ast.IfStmt) error {
+	cond, err := c.evalExpr(stmt.Cond)
+	if err != nil {
+		return err
+	}
+
+	condBool, ok := cond.(bool)
+	if !ok {
+		return fmt.Errorf("if condition must be boolean")
+	}
+
+	if condBool {
+		for _, s := range stmt.Body.List {
+			if err := c.executeStmt(s); err != nil {
+				return err
+			}
+			if c.ShouldRedirect {
+				return nil
+			}
+		}
+	} else if stmt.Else != nil {
+		switch elseStmt := stmt.Else.(type) {
+		case *ast.BlockStmt:
+			for _, s := range elseStmt.List {
+				if err := c.executeStmt(s); err != nil {
+					return err
+				}
+				if c.ShouldRedirect {
+					return nil
+				}
+			}
+		case *ast.IfStmt:
+			return c.executeIfStmt(elseStmt)
+		}
+	}
+
+	return nil
+}
+
+func (c *Context) executeAssignStmt(stmt *ast.AssignStmt) error {
+	if stmt.Tok != token.DEFINE && stmt.Tok != token.ASSIGN {
+		return fmt.Errorf("unsupported assignment operator: %v", stmt.Tok)
+	}
+
+	for i, lhs := range stmt.Lhs {
+		if i >= len(stmt.Rhs) {
+			break
+		}
+
+		val, err := c.evalExpr(stmt.Rhs[i])
+		if err != nil {
+			return err
+		}
+
+		if ident, ok := lhs.(*ast.Ident); ok {
+			c.Variables[ident.Name] = val
 		}
 	}
 
@@ -73,6 +189,15 @@ func (c *Context) evalExpr(expr ast.Expr) (interface{}, error) {
 	case *ast.BasicLit:
 		return c.evalBasicLit(e)
 	case *ast.Ident:
+		if e.Name == "nil" {
+			return nil, nil
+		}
+		if e.Name == "true" {
+			return true, nil
+		}
+		if e.Name == "false" {
+			return false, nil
+		}
 		if val, ok := c.Variables[e.Name]; ok {
 			return val, nil
 		}
@@ -87,6 +212,8 @@ func (c *Context) evalExpr(expr ast.Expr) (interface{}, error) {
 		return c.evalCallExpr(e)
 	case *ast.CompositeLit:
 		return c.evalCompositeLit(e)
+	case *ast.ParenExpr:
+		return c.evalExpr(e.X)
 	default:
 		return nil, fmt.Errorf("unsupported expression type: %T", expr)
 	}
@@ -134,6 +261,22 @@ func (c *Context) evalBinaryExpr(expr *ast.BinaryExpr) (interface{}, error) {
 		return c.mul(left, right)
 	case token.QUO:
 		return c.div(left, right)
+	case token.EQL:
+		return c.equal(left, right), nil
+	case token.NEQ:
+		return !c.equal(left, right), nil
+	case token.LSS:
+		return c.less(left, right)
+	case token.LEQ:
+		return c.lessEqual(left, right)
+	case token.GTR:
+		return c.greater(left, right)
+	case token.GEQ:
+		return c.greaterEqual(left, right)
+	case token.LAND:
+		return c.logicalAnd(left, right), nil
+	case token.LOR:
+		return c.logicalOr(left, right), nil
 	default:
 		return nil, fmt.Errorf("unsupported binary operator: %v", expr.Op)
 	}
@@ -187,6 +330,14 @@ func (c *Context) evalSelectorExpr(expr *ast.SelectorExpr) (interface{}, error) 
 }
 
 func (c *Context) evalCallExpr(expr *ast.CallExpr) (interface{}, error) {
+	if sel, ok := expr.Fun.(*ast.SelectorExpr); ok {
+		if ident, ok := sel.X.(*ast.Ident); ok && ident.Name == "Galaxy" {
+			if sel.Sel.Name == "redirect" {
+				return c.handleGalaxyRedirect(expr.Args)
+			}
+		}
+	}
+
 	if ident, ok := expr.Fun.(*ast.Ident); ok {
 		switch ident.Name {
 		case "len":
@@ -204,6 +355,36 @@ func (c *Context) evalCallExpr(expr *ast.CallExpr) (interface{}, error) {
 		}
 	}
 	return nil, fmt.Errorf("unsupported function call")
+}
+
+func (c *Context) handleGalaxyRedirect(args []ast.Expr) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("Galaxy.redirect expects 2 arguments (url, status)")
+	}
+
+	url, err := c.evalExpr(args[0])
+	if err != nil {
+		return nil, err
+	}
+	urlStr, ok := url.(string)
+	if !ok {
+		return nil, fmt.Errorf("redirect URL must be string")
+	}
+
+	status, err := c.evalExpr(args[1])
+	if err != nil {
+		return nil, err
+	}
+	statusInt, ok := status.(int64)
+	if !ok {
+		return nil, fmt.Errorf("redirect status must be int")
+	}
+
+	c.RedirectURL = urlStr
+	c.RedirectStatus = int(statusInt)
+	c.ShouldRedirect = true
+
+	return nil, nil
 }
 
 func (c *Context) evalCompositeLit(expr *ast.CompositeLit) (interface{}, error) {
@@ -345,6 +526,90 @@ func (c *Context) div(left, right interface{}) (interface{}, error) {
 		}
 	}
 	return nil, fmt.Errorf("invalid operands for /")
+}
+
+func (c *Context) equal(left, right interface{}) bool {
+	if left == nil && right == nil {
+		return true
+	}
+	if left == nil || right == nil {
+		return false
+	}
+	return reflect.DeepEqual(left, right)
+}
+
+func (c *Context) less(left, right interface{}) (interface{}, error) {
+	if lInt, ok := left.(int64); ok {
+		if rInt, ok := right.(int64); ok {
+			return lInt < rInt, nil
+		}
+	}
+	if lFloat, ok := left.(float64); ok {
+		if rFloat, ok := right.(float64); ok {
+			return lFloat < rFloat, nil
+		}
+	}
+	return nil, fmt.Errorf("invalid operands for <")
+}
+
+func (c *Context) lessEqual(left, right interface{}) (interface{}, error) {
+	if lInt, ok := left.(int64); ok {
+		if rInt, ok := right.(int64); ok {
+			return lInt <= rInt, nil
+		}
+	}
+	if lFloat, ok := left.(float64); ok {
+		if rFloat, ok := right.(float64); ok {
+			return lFloat <= rFloat, nil
+		}
+	}
+	return nil, fmt.Errorf("invalid operands for <=")
+}
+
+func (c *Context) greater(left, right interface{}) (interface{}, error) {
+	if lInt, ok := left.(int64); ok {
+		if rInt, ok := right.(int64); ok {
+			return lInt > rInt, nil
+		}
+	}
+	if lFloat, ok := left.(float64); ok {
+		if rFloat, ok := right.(float64); ok {
+			return lFloat > rFloat, nil
+		}
+	}
+	return nil, fmt.Errorf("invalid operands for >")
+}
+
+func (c *Context) greaterEqual(left, right interface{}) (interface{}, error) {
+	if lInt, ok := left.(int64); ok {
+		if rInt, ok := right.(int64); ok {
+			return lInt >= rInt, nil
+		}
+	}
+	if lFloat, ok := left.(float64); ok {
+		if rFloat, ok := right.(float64); ok {
+			return lFloat >= rFloat, nil
+		}
+	}
+	return nil, fmt.Errorf("invalid operands for >=")
+}
+
+func (c *Context) logicalAnd(left, right interface{}) bool {
+	lBool, lOk := left.(bool)
+	rBool, rOk := right.(bool)
+	if lOk && rOk {
+		return lBool && rBool
+	}
+	return false
+}
+
+func (c *Context) logicalOr(left, right interface{}) bool {
+	lBool, lOk := left.(bool)
+	rBool, rOk := right.(bool)
+	if lOk && rOk {
+		return lBool || rBool
+	}
+	return false
 }
 
 func (c *Context) Get(name string) (interface{}, bool) {

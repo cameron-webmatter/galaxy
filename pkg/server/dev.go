@@ -213,6 +213,11 @@ func (s *DevServer) handlePage(route *router.Route, mwCtx *middleware.Context, p
 		}
 	}
 
+	if ctx.ShouldRedirect {
+		http.Redirect(mwCtx.Response, mwCtx.Request, ctx.RedirectURL, ctx.RedirectStatus)
+		return
+	}
+
 	s.Compiler.CollectedStyles = nil
 	processedTemplate := s.Compiler.ProcessComponentTags(comp.Template, ctx)
 

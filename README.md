@@ -181,6 +181,29 @@ btn.AddEventListener("click", func() {
 
 **Note:** Scripts default to Go (compiled to WebAssembly). For JavaScript, use `<script type="module">`.
 
+### Frontmatter API
+
+The frontmatter section supports Go code execution at render time. Available APIs:
+
+#### `Galaxy.redirect(url, status)`
+Server-side redirect in SSR/Hybrid modes. Prevents template rendering.
+
+```gxc
+---
+if Locals.user == nil {
+    Galaxy.redirect("/login", 302)
+}
+
+userName := Locals.user.name
+---
+<h1>Welcome, {userName}!</h1>
+```
+
+**Available variables:**
+- `Request` - HTTP request context
+- `Locals` - Middleware data (e.g., authenticated user)
+- `Galaxy` - Framework APIs (redirect, etc.)
+
 ## Build Modes
 
 Galaxy supports three output modes configured in `galaxy.config.toml`:

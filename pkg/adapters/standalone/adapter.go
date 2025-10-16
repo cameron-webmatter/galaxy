@@ -544,6 +544,11 @@ func handlePage(route *routeInfo, mwCtx *middleware.Context) {
 		}
 	}
 
+	if ctx.ShouldRedirect {
+		http.Redirect(mwCtx.Response, mwCtx.Request, ctx.RedirectURL, ctx.RedirectStatus)
+		return
+	}
+
 	comp.CollectedStyles = nil
 	processedTemplate := comp.ProcessComponentTags(parsed.Template, ctx)
 

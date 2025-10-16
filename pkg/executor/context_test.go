@@ -331,3 +331,189 @@ func TestContextString(t *testing.T) {
 		t.Error("Expected non-empty string representation")
 	}
 }
+
+func TestIfStatement(t *testing.T) {
+	ctx := NewContext()
+
+	code := `
+if 5 > 3 {
+	var result = "greater"
+}
+`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	if val, ok := ctx.Get("result"); !ok || val != "greater" {
+		t.Errorf("Expected result='greater', got %v", val)
+	}
+}
+
+func TestIfElseStatement(t *testing.T) {
+	ctx := NewContext()
+
+	code := `
+if 3 > 5 {
+	var result = "greater"
+} else {
+	var result = "not greater"
+}
+`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	if val, ok := ctx.Get("result"); !ok || val != "not greater" {
+		t.Errorf("Expected result='not greater', got %v", val)
+	}
+}
+
+func TestComparisonOperators(t *testing.T) {
+	tests := []struct {
+		code     string
+		expected bool
+	}{
+		{"var x = 5 == 5", true},
+		{"var x = 5 != 3", true},
+		{"var x = 5 > 3", true},
+		{"var x = 5 < 3", false},
+		{"var x = 5 >= 5", true},
+		{"var x = 3 <= 5", true},
+	}
+
+	for _, tt := range tests {
+		ctx := NewContext()
+		err := ctx.Execute(tt.code)
+		if err != nil {
+			t.Fatalf("Execute failed for %s: %v", tt.code, err)
+		}
+
+		if val, ok := ctx.Get("x"); !ok || val != tt.expected {
+			t.Errorf("For %s: expected %v, got %v", tt.code, tt.expected, val)
+		}
+	}
+}
+
+func TestNilComparison(t *testing.T) {
+	ctx := NewContext()
+
+	locals := make(map[string]any)
+	locals["user"] = nil
+	ctx.SetLocals(locals)
+
+	code := `
+if Locals.user == nil {
+	var result = "no user"
+}
+`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	if val, ok := ctx.Get("result"); !ok || val != "no user" {
+		t.Errorf("Expected result='no user', got %v", val)
+	}
+}
+
+func TestGalaxyRedirect(t *testing.T) {
+	ctx := NewContext()
+
+	code := `Galaxy.redirect("/login", 302)`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	if !ctx.ShouldRedirect {
+		t.Error("Expected ShouldRedirect to be true")
+	}
+
+	if ctx.RedirectURL != "/login" {
+		t.Errorf("Expected RedirectURL='/login', got %s", ctx.RedirectURL)
+	}
+
+	if ctx.RedirectStatus != 302 {
+		t.Errorf("Expected RedirectStatus=302, got %d", ctx.RedirectStatus)
+	}
+}
+
+func TestConditionalRedirect(t *testing.T) {
+	ctx := NewContext()
+
+	locals := make(map[string]any)
+	locals["user"] = nil
+	ctx.SetLocals(locals)
+
+	code := `
+if Locals.user == nil {
+	Galaxy.redirect("/login", 302)
+}
+`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	if !ctx.ShouldRedirect {
+		t.Error("Expected ShouldRedirect to be true")
+	}
+
+	if ctx.RedirectURL != "/login" {
+		t.Errorf("Expected RedirectURL='/login', got %s", ctx.RedirectURL)
+	}
+}
+
+func TestRedirectStopsExecution(t *testing.T) {
+	ctx := NewContext()
+
+	code := `
+Galaxy.redirect("/login", 302)
+var shouldNotRun = "this should not execute"
+`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	if _, ok := ctx.Get("shouldNotRun"); ok {
+		t.Error("Expected code after redirect to not execute")
+	}
+
+	if !ctx.ShouldRedirect {
+		t.Error("Expected ShouldRedirect to be true")
+	}
+}
+
+func TestLogicalOperators(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		expected bool
+	}{
+		{"and true true", "var x = (5 > 3) && (10 > 5)", true},
+		{"and true false", "var x = (5 > 3) && (3 > 10)", false},
+		{"or false true", "var x = (3 > 5) || (10 > 5)", true},
+		{"or false false", "var x = (3 > 5) || (5 > 10)", false},
+	}
+
+	for _, tt := range tests {
+		ctx := NewContext()
+		err := ctx.Execute(tt.code)
+		if err != nil {
+			t.Fatalf("Execute failed for %s: %v", tt.name, err)
+		}
+
+		if val, ok := ctx.Get("x"); !ok || val != tt.expected {
+			t.Errorf("For %s: expected %v, got %v", tt.name, tt.expected, val)
+		}
+	}
+}
