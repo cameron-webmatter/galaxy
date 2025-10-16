@@ -244,6 +244,12 @@ func (s *DevServer) handlePage(route *router.Route, mwCtx *middleware.Context, p
 		return
 	}
 
+	wasmAssets, err := s.Bundler.BundleWasmScripts(comp, route.FilePath)
+	if err != nil {
+		http.Error(mwCtx.Response, fmt.Sprintf("WASM bundle error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
 	scopeID := ""
 	for _, style := range allStyles {
 		if style.Scoped {
@@ -252,7 +258,7 @@ func (s *DevServer) handlePage(route *router.Route, mwCtx *middleware.Context, p
 		}
 	}
 
-	rendered = s.Bundler.InjectAssets(rendered, cssPath, jsPath, scopeID)
+	rendered = s.Bundler.InjectAssetsWithWasm(rendered, cssPath, jsPath, scopeID, wasmAssets)
 
 	mwCtx.Response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	mwCtx.Response.Write([]byte(rendered))

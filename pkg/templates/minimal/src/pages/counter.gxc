@@ -1,0 +1,86 @@
+---
+var title = "WASM Counter"
+---
+
+<Layout title={title}>
+	<main>
+		<h1>🔢 WASM Counter</h1>
+		<p>Interactive counter powered by Go WebAssembly</p>
+		
+		<div id="counter">
+			<button id="decrement">-</button>
+			<span id="count">0</span>
+			<button id="increment">+</button>
+		</div>
+		
+		<a href="/" class="back-link">← Back to home</a>
+	</main>
+</Layout>
+
+<style>
+	main {
+		max-width: 800px;
+		margin: 0 auto;
+		padding: 2rem;
+		font-family: system-ui, sans-serif;
+	}
+	h1 {
+		color: #2563eb;
+	}
+	#counter {
+		display: flex;
+		gap: 1.5rem;
+		align-items: center;
+		justify-content: center;
+		margin: 3rem 0;
+	}
+	button {
+		padding: 0.75rem 1.5rem;
+		font-size: 1.5rem;
+		cursor: pointer;
+		background: #2563eb;
+		color: white;
+		border: none;
+		border-radius: 0.5rem;
+		transition: background 0.2s;
+	}
+	button:hover {
+		background: #1d4ed8;
+	}
+	#count {
+		font-size: 3rem;
+		font-weight: bold;
+		min-width: 5rem;
+		text-align: center;
+		color: #2563eb;
+	}
+	.back-link {
+		display: inline-block;
+		margin-top: 2rem;
+		color: #2563eb;
+		text-decoration: none;
+	}
+	.back-link:hover {
+		text-decoration: underline;
+	}
+</style>
+
+<script>
+import "fmt"
+import "github.com/galaxy/galaxy/pkg/wasmdom"
+
+count := 0
+incBtn := wasmdom.GetElementById("increment")
+decBtn := wasmdom.GetElementById("decrement")
+display := wasmdom.GetElementById("count")
+
+incBtn.AddEventListener("click", func() {
+	count++
+	display.SetTextContent(fmt.Sprintf("%d", count))
+})
+
+decBtn.AddEventListener("click", func() {
+	count--
+	display.SetTextContent(fmt.Sprintf("%d", count))
+})
+</script>

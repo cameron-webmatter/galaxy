@@ -7,6 +7,7 @@ var title = "Welcome to Galaxy"
 		<h1>🚀 Welcome to Galaxy</h1>
 		<p>Fast, Go-powered web framework</p>
 		<p>Edit <code>pages/index.gxc</code> to get started.</p>
+		<p><a href="/counter" class="demo-link">Try the WASM Counter →</a></p>
 	</main>
 </Layout>
 
@@ -25,5 +26,13 @@ var title = "Welcome to Galaxy"
 		padding: 0.2rem 0.4rem;
 		border-radius: 0.25rem;
 		font-family: monospace;
+	}
+	.demo-link {
+		color: #2563eb;
+		text-decoration: none;
+		font-weight: 500;
+	}
+	.demo-link:hover {
+		text-decoration: underline;
 	}
 </style>

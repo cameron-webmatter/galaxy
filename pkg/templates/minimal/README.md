@@ -14,3 +14,7 @@ galaxy build
 # Preview production build
 galaxy preview
 ```
+
+## Features
+
+- **WASM Counter Example** - Interactive counter at `/counter` demonstrating Go WebAssembly integration with Galaxy
