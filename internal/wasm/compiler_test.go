@@ -293,8 +293,8 @@ fmt.Println("hello")`
 		t.Fatalf("prepareScript failed: %v", err)
 	}
 
-	if !strings.Contains(result, "package wasmscript_abc12345") {
-		t.Error("Expected package declaration with hash")
+	if !strings.Contains(result, "package main") {
+		t.Error("Expected package main declaration")
 	}
 
 	if !strings.Contains(result, `import (`) {
@@ -331,8 +331,8 @@ func main() {
 		t.Fatalf("prepareScript failed: %v", err)
 	}
 
-	if !strings.Contains(result, "package wasmscript_xyz98765") {
-		t.Error("Expected package declaration")
+	if !strings.Contains(result, "package main") {
+		t.Error("Expected package main declaration")
 	}
 
 	mainCount := strings.Count(result, "func main()")
@@ -356,6 +356,64 @@ fmt.Println("tinygo test")`
 
 	if strings.Contains(result, "wasmscript_") {
 		t.Error("TinyGo should not use custom package name")
+	}
+}
+
+func TestPrepareScriptWithHelperFunctions(t *testing.T) {
+	script := `import "fmt"
+
+func helper(x int) int {
+	return x * 2
+}
+
+func anotherHelper() {
+	fmt.Println("helper")
+}
+
+result := helper(5)
+fmt.Println(result)`
+
+	result, err := prepareScript(script, "abc12345", false)
+	if err != nil {
+		t.Fatalf("prepareScript failed: %v", err)
+	}
+
+	if !strings.Contains(result, "package main") {
+		t.Error("Expected package main")
+	}
+
+	if !strings.Contains(result, "func helper(x int) int") {
+		t.Error("Expected helper function at package level")
+	}
+
+	if !strings.Contains(result, "func anotherHelper()") {
+		t.Error("Expected anotherHelper function at package level")
+	}
+
+	if !strings.Contains(result, "func main()") {
+		t.Error("Expected main function")
+	}
+
+	helperIdx := strings.Index(result, "func helper")
+	mainIdx := strings.Index(result, "func main()")
+
+	if helperIdx == -1 || mainIdx == -1 || helperIdx >= mainIdx {
+		t.Error("Expected helper functions to appear before main function")
+	}
+
+	if !strings.Contains(result, "result := helper(5)") {
+		t.Error("Expected executable code in main")
+	}
+
+	lines := strings.Split(result, "\n")
+	inMain := false
+	for _, line := range lines {
+		if strings.Contains(line, "func main()") {
+			inMain = true
+		}
+		if inMain && strings.Contains(line, "func helper") {
+			t.Error("Helper function should not be nested inside main")
+		}
 	}
 }
 

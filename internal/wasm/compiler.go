@@ -176,9 +176,19 @@ func prepareScript(script, hash string, useTinyGo bool) (string, error) {
 	}
 
 	if !hasMain {
+		funcs, execCode := separateFunctionsFromCode(body)
+
+		for _, fn := range funcs {
+			final.WriteString(fn)
+			final.WriteString("\n\n")
+		}
+
 		final.WriteString("func main() {\n")
-		final.WriteString(indentCode(body))
-		final.WriteString("\n\tselect {}\n")
+		if execCode != "" {
+			final.WriteString(indentCode(execCode))
+			final.WriteString("\n")
+		}
+		final.WriteString("\tselect {}\n")
 		final.WriteString("}\n")
 	} else {
 		final.WriteString(body)
@@ -227,6 +237,46 @@ func containsMainFunc(body string) bool {
 	}
 
 	return false
+}
+
+func separateFunctionsFromCode(body string) (functions []string, executableCode string) {
+	lines := strings.Split(body, "\n")
+	var funcLines []string
+	var execLines []string
+	inFunc := false
+	braceDepth := 0
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		if !inFunc && strings.HasPrefix(trimmed, "func ") {
+			inFunc = true
+			funcLines = append(funcLines, line)
+			braceDepth = strings.Count(line, "{") - strings.Count(line, "}")
+			if braceDepth == 0 {
+				inFunc = false
+			}
+			continue
+		}
+
+		if inFunc {
+			funcLines = append(funcLines, line)
+			braceDepth += strings.Count(line, "{") - strings.Count(line, "}")
+			if braceDepth == 0 {
+				inFunc = false
+				functions = append(functions, strings.Join(funcLines, "\n"))
+				funcLines = nil
+			}
+			continue
+		}
+
+		if trimmed != "" {
+			execLines = append(execLines, line)
+		}
+	}
+
+	executableCode = strings.Join(execLines, "\n")
+	return functions, executableCode
 }
 
 func indentCode(code string) string {
