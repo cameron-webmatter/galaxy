@@ -1,8 +1,8 @@
 package lsp
 
 import (
-	"github.com/galaxy/galaxy/pkg/executor"
-	"github.com/galaxy/galaxy/pkg/parser"
+	"github.com/cameron-webmatter/galaxy/pkg/executor"
+	"github.com/cameron-webmatter/galaxy/pkg/parser"
 	"go.lsp.dev/protocol"
 )
 

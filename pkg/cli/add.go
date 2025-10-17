@@ -8,7 +8,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/BurntSushi/toml"
-	"github.com/galaxy/galaxy/pkg/config"
+	"github.com/cameron-webmatter/galaxy/pkg/config"
 	"github.com/spf13/cobra"
 )
 

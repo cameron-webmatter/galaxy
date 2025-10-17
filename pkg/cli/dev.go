@@ -11,8 +11,8 @@ import (
 	"syscall"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/galaxy/galaxy/pkg/config"
-	"github.com/galaxy/galaxy/pkg/server"
+	"github.com/cameron-webmatter/galaxy/pkg/config"
+	"github.com/cameron-webmatter/galaxy/pkg/server"
 	"github.com/spf13/cobra"
 )
 

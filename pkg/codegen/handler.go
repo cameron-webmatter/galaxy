@@ -6,9 +6,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/galaxy/galaxy/pkg/executor"
-	"github.com/galaxy/galaxy/pkg/parser"
-	"github.com/galaxy/galaxy/pkg/router"
+	"github.com/cameron-webmatter/galaxy/pkg/executor"
+	"github.com/cameron-webmatter/galaxy/pkg/parser"
+	"github.com/cameron-webmatter/galaxy/pkg/router"
 )
 
 func NewHandlerGenerator(comp *parser.Component, route *router.Route, moduleName, baseDir string) *HandlerGenerator {

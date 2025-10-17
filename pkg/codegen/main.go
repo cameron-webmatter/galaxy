@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/galaxy/galaxy/pkg/router"
+	"github.com/cameron-webmatter/galaxy/pkg/router"
 )
 
 func NewMainGenerator(handlers []*GeneratedHandler, routes []*router.Route, moduleName, manifestPath string) *MainGenerator {

@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/galaxy/galaxy/pkg/lsp"
+	"github.com/cameron-webmatter/galaxy/pkg/lsp"
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 )

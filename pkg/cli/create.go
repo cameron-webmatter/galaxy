@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/galaxy/galaxy/pkg/prompts"
-	"github.com/galaxy/galaxy/pkg/templates"
+	"github.com/cameron-webmatter/galaxy/pkg/prompts"
+	"github.com/cameron-webmatter/galaxy/pkg/templates"
 	"github.com/spf13/cobra"
 )
 

@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/galaxy/galaxy/pkg/config"
-	"github.com/galaxy/galaxy/pkg/parser"
+	"github.com/cameron-webmatter/galaxy/pkg/config"
+	"github.com/cameron-webmatter/galaxy/pkg/parser"
 	"github.com/spf13/cobra"
 )
 

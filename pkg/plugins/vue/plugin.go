@@ -1,7 +1,7 @@
 package vue
 
 import (
-	"github.com/galaxy/galaxy/pkg/plugins"
+	"github.com/cameron-webmatter/galaxy/pkg/plugins"
 )
 
 type VuePlugin struct {

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/galaxy/galaxy/pkg/executor"
+	"github.com/cameron-webmatter/galaxy/pkg/executor"
 )
 
 func TestMapPropertyAccess(t *testing.T) {

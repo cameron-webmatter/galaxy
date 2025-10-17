@@ -1,8 +1,8 @@
 package codegen
 
 import (
-	"github.com/galaxy/galaxy/pkg/parser"
-	"github.com/galaxy/galaxy/pkg/router"
+	"github.com/cameron-webmatter/galaxy/pkg/parser"
+	"github.com/cameron-webmatter/galaxy/pkg/router"
 )
 
 type HandlerGenerator struct {

@@ -1,4 +1,4 @@
-module github.com/galaxy/galaxy
+module github.com/cameron-webmatter/galaxy
 
 go 1.23
 

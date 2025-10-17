@@ -1,6 +1,6 @@
 package adapters
 
-import "github.com/galaxy/galaxy/pkg/config"
+import "github.com/cameron-webmatter/galaxy/pkg/config"
 
 type Adapter interface {
 	Name() string

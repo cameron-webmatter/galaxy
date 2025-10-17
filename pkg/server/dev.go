@@ -12,16 +12,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/galaxy/galaxy/internal/assets"
-	"github.com/galaxy/galaxy/pkg/compiler"
-	"github.com/galaxy/galaxy/pkg/endpoints"
-	"github.com/galaxy/galaxy/pkg/executor"
-	"github.com/galaxy/galaxy/pkg/lifecycle"
-	"github.com/galaxy/galaxy/pkg/middleware"
-	"github.com/galaxy/galaxy/pkg/parser"
-	"github.com/galaxy/galaxy/pkg/router"
-	"github.com/galaxy/galaxy/pkg/ssr"
-	"github.com/galaxy/galaxy/pkg/template"
+	"github.com/cameron-webmatter/galaxy/internal/assets"
+	"github.com/cameron-webmatter/galaxy/pkg/compiler"
+	"github.com/cameron-webmatter/galaxy/pkg/endpoints"
+	"github.com/cameron-webmatter/galaxy/pkg/executor"
+	"github.com/cameron-webmatter/galaxy/pkg/lifecycle"
+	"github.com/cameron-webmatter/galaxy/pkg/middleware"
+	"github.com/cameron-webmatter/galaxy/pkg/parser"
+	"github.com/cameron-webmatter/galaxy/pkg/router"
+	"github.com/cameron-webmatter/galaxy/pkg/ssr"
+	"github.com/cameron-webmatter/galaxy/pkg/template"
 )
 
 type DevServer struct {

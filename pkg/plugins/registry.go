@@ -1,7 +1,7 @@
 package plugins
 
 import (
-	"github.com/galaxy/galaxy/pkg/config"
+	"github.com/cameron-webmatter/galaxy/pkg/config"
 )
 
 func NewDefaultManager(cfg *config.Config) *Manager {

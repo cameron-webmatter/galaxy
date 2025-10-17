@@ -128,7 +128,7 @@ func (c *EndpointCompiler) compile(filePath string, methods []string) (string, e
 	pluginSrc := fmt.Sprintf(`package main
 
 import (
-	"github.com/galaxy/galaxy/pkg/endpoints"
+	"github.com/cameron-webmatter/galaxy/pkg/endpoints"
 	%s "%s"
 )
 

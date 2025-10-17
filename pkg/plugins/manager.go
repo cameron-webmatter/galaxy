@@ -3,7 +3,7 @@ package plugins
 import (
 	"fmt"
 
-	"github.com/galaxy/galaxy/pkg/config"
+	"github.com/cameron-webmatter/galaxy/pkg/config"
 )
 
 type Manager struct {

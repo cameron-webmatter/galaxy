@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/galaxy/galaxy/pkg/build"
-	"github.com/galaxy/galaxy/pkg/config"
+	"github.com/cameron-webmatter/galaxy/pkg/build"
+	"github.com/cameron-webmatter/galaxy/pkg/config"
 	"github.com/spf13/cobra"
 )
 

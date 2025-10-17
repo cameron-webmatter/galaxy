@@ -6,10 +6,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/galaxy/galaxy/internal/assets"
-	"github.com/galaxy/galaxy/pkg/executor"
-	"github.com/galaxy/galaxy/pkg/parser"
-	tmpl "github.com/galaxy/galaxy/pkg/template"
+	"github.com/cameron-webmatter/galaxy/internal/assets"
+	"github.com/cameron-webmatter/galaxy/pkg/executor"
+	"github.com/cameron-webmatter/galaxy/pkg/parser"
+	tmpl "github.com/cameron-webmatter/galaxy/pkg/template"
 )
 
 type ComponentCompiler struct {

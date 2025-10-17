@@ -8,7 +8,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/galaxy/galaxy/pkg/adapters"
+	"github.com/cameron-webmatter/galaxy/pkg/adapters"
 )
 
 type StandaloneAdapter struct{}
@@ -294,16 +294,16 @@ func (a *StandaloneAdapter) generateGoMod(cfg *adapters.BuildConfig) error {
 
 go 1.21
 
-replace github.com/galaxy/galaxy => %s
+replace github.com/cameron-webmatter/galaxy => %s
 
-require github.com/galaxy/galaxy v0.0.0
+require github.com/cameron-webmatter/galaxy v0.0.0
 `, galaxyPath)
 
 	return os.WriteFile(modPath, []byte(content), 0644)
 }
 
 func (a *StandaloneAdapter) getGalaxyModulePath() (string, error) {
-	cmd := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/galaxy/galaxy")
+	cmd := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/cameron-webmatter/galaxy")
 	out, err := cmd.Output()
 	if err != nil {
 		wd, _ := os.Getwd()
@@ -354,18 +354,18 @@ import (
 	"syscall"
 	{{end}}
 
-	"github.com/galaxy/galaxy/pkg/compiler"
-	"github.com/galaxy/galaxy/pkg/endpoints"
-	"github.com/galaxy/galaxy/pkg/executor"
+	"github.com/cameron-webmatter/galaxy/pkg/compiler"
+	"github.com/cameron-webmatter/galaxy/pkg/endpoints"
+	"github.com/cameron-webmatter/galaxy/pkg/executor"
 	{{if .HasLifecycle}}
-	"github.com/galaxy/galaxy/pkg/lifecycle"
+	"github.com/cameron-webmatter/galaxy/pkg/lifecycle"
 	{{end}}
-	"github.com/galaxy/galaxy/pkg/middleware"
-	"github.com/galaxy/galaxy/pkg/parser"
-	"github.com/galaxy/galaxy/pkg/router"
-	"github.com/galaxy/galaxy/pkg/ssr"
-	"github.com/galaxy/galaxy/pkg/template"
-	"github.com/galaxy/galaxy/pkg/wasm"
+	"github.com/cameron-webmatter/galaxy/pkg/middleware"
+	"github.com/cameron-webmatter/galaxy/pkg/parser"
+	"github.com/cameron-webmatter/galaxy/pkg/router"
+	"github.com/cameron-webmatter/galaxy/pkg/ssr"
+	"github.com/cameron-webmatter/galaxy/pkg/template"
+	"github.com/cameron-webmatter/galaxy/pkg/wasm"
 
 	{{range .EndpointImports}}
 	{{.Alias}} "{{.Path}}"

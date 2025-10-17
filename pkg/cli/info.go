@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/galaxy/galaxy/pkg/config"
+	"github.com/cameron-webmatter/galaxy/pkg/config"
 	"github.com/spf13/cobra"
 )
 

@@ -1,7 +1,7 @@
 package react
 
 import (
-	"github.com/galaxy/galaxy/pkg/plugins"
+	"github.com/cameron-webmatter/galaxy/pkg/plugins"
 )
 
 type ReactPlugin struct {
