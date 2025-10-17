@@ -1,0 +1,11 @@
+---
+name := "Alice"
+age := 30
+---
+<!DOCTYPE html>
+<html>
+<head><title>Simple Test</title></head>
+<body>
+  <p>Name: {name}, Age: {age}</p>
+</body>
+</html>

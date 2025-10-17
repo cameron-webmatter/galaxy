@@ -1,0 +1,43 @@
+---
+type User struct {
+    Name  string
+    Email string
+    Age   int
+}
+
+user := User{
+    Name:  "Alice Smith",
+    Email: "alice@example.com",
+    Age:   30,
+}
+
+type Project struct {
+    Title  string
+    Owner  *User
+    Status string
+}
+
+project := Project{
+    Title:  "Galaxy Framework",
+    Owner:  &user,
+    Status: "active",
+}
+---
+<!DOCTYPE html>
+<html>
+<head><title>Field Access Test</title></head>
+<body>
+  <h1>Field Access Test</h1>
+  
+  <h2>User</h2>
+  <p>Name: {user.Name}</p>
+  <p>Email: {user.Email}</p>
+  <p>Age: {user.Age}</p>
+  
+  <h2>Project</h2>
+  <p>Title: {project.Title}</p>
+  <p>Status: {project.Status}</p>
+  <p>Owner: {project.Owner.Name}</p>
+  <p>Owner Email: {project.Owner.Email}</p>
+</body>
+</html>

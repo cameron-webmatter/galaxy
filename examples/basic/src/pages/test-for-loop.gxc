@@ -1,0 +1,25 @@
+---
+import "fmt"
+
+items := []string{"apple", "banana", "cherry"}
+total := 0
+
+for _, item := range items {
+    total++
+}
+
+message := fmt.Sprintf("Found %d items", total)
+---
+<!DOCTYPE html>
+<html>
+<head><title>For Loop Test</title></head>
+<body>
+  <h1>For Loop Test</h1>
+  <p>{message}</p>
+  <ul>
+  {for _, item := range items}
+    <li>{item}</li>
+  {endfor}
+  </ul>
+</body>
+</html>

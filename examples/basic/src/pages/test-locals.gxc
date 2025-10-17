@@ -1,0 +1,7 @@
+---
+if Galaxy.Locals.user == nil {
+    Galaxy.Redirect("/login", 302)
+}
+userName := "Test"
+---
+<h1>User: {userName}</h1>

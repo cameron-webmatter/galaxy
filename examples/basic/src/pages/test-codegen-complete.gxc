@@ -1,0 +1,42 @@
+---
+import "strings"
+import "fmt"
+
+// Test 1: Short declarations
+userName := "Alice"
+itemCount := 42
+
+// Test 2: Multi-value returns
+result, ok := strings.CutPrefix("Hello World", "Hello ")
+
+// Test 3: Standard var declarations
+var status = "active"
+var greeting = fmt.Sprintf("Welcome, %s!", userName)
+
+// Test 4: Method chaining
+builder := strings.Builder{}
+builder.WriteString("Line 1")
+builder.WriteString(" - ")
+builder.WriteString("Line 2")
+output := builder.String()
+---
+<!DOCTYPE html>
+<html>
+<head><title>Complete Codegen Test</title></head>
+<body>
+  <h1>Codegen Mode Test Suite</h1>
+  
+  <h2>Short Declarations</h2>
+  <p>User: {userName}, Items: {itemCount}</p>
+  
+  <h2>Multi-Value Returns</h2>
+  <p>Result: {result}, OK: {ok}</p>
+  
+  <h2>Standard Variables</h2>
+  <p>Status: {status}</p>
+  <p>Greeting: {greeting}</p>
+  
+  <h2>Method Chaining</h2>
+  <p>Output: {output}</p>
+</body>
+</html>

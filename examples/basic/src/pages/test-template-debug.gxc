@@ -1,0 +1,14 @@
+---
+name := "Alice"
+items := []string{"apple", "banana", "cherry"}
+---
+<!DOCTYPE html>
+<html>
+<head><title>Debug</title></head>
+<body>
+  <p>Name: {name}</p>
+  <div galaxy:for={item in items}>
+    <p>Item: {item}</p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,8 @@
+---
+userName := "Alice"
+count := 42
+project, err := someFunc()
+---
+<h1>{userName}</h1>
+<p>Count: {count}</p>
+<p>Project: {project}</p>

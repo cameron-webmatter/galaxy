@@ -1,0 +1,23 @@
+---
+name := "Alice"
+age := 30
+
+type Person struct {
+    Name string
+    Age  int
+}
+
+person := Person{
+    Name: "Bob",
+    Age:  25,
+}
+---
+<!DOCTYPE html>
+<html>
+<body>
+  <p>Name: {name}</p>
+  <p>Age: {age}</p>
+  <p>Person Name: {person.Name}</p>
+  <p>Person Age: {person.Age}</p>
+</body>
+</html>

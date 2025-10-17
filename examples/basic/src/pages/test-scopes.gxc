@@ -1,0 +1,31 @@
+---
+// Top-level variables (should be extracted)
+topVar := "I'm at the top"
+anotherTop := 42
+
+// Inside for loop (should NOT be extracted)
+items := []string{"a", "b", "c"}
+for _, item := range items {
+    insideLoop := "Should not be extracted"
+    _ = insideLoop
+}
+
+// Inside if block (should NOT be extracted)
+if true {
+    insideIf := "Also should not be extracted"
+    _ = insideIf
+}
+
+// Back at top level (should be extracted)
+finalVar := "Back at top"
+---
+<!DOCTYPE html>
+<html>
+<head><title>Scope Test</title></head>
+<body>
+  <h1>Scope Test</h1>
+  <p>Top var: {topVar}</p>
+  <p>Another: {anotherTop}</p>
+  <p>Final: {finalVar}</p>
+</body>
+</html>

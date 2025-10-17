@@ -1,0 +1,76 @@
+---
+var title = "Catch-All Route Test"
+var docPath = Galaxy.Params["slug"]
+---
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{title}</title>
+</head>
+<body>
+    <h1>Catch-All Route Test</h1>
+    
+    <div>
+        <h2>Accessing via Galaxy.Params</h2>
+        <p>Document Path (Galaxy.Params["slug"]): <strong>{docPath}</strong></p>
+    </div>
+
+    <div>
+        <h2>Accessing via individual variable</h2>
+        <p>Document Path (direct slug): <strong>{slug}</strong></p>
+    </div>
+
+    <div galaxy:if={Request}>
+        <h2>Request Info</h2>
+        <p>Full Path: {Request.Path()}</p>
+        <p>Method: {Request.Method()}</p>
+    </div>
+
+    <div>
+        <h3>Try these URLs:</h3>
+        <ul>
+            <li><a href="/params/docs/getting-started">/params/docs/getting-started</a></li>
+            <li><a href="/params/docs/api/routes">/params/docs/api/routes</a></li>
+            <li><a href="/params/docs/guides/advanced/params">/params/docs/guides/advanced/params</a></li>
+        </ul>
+    </div>
+
+    <a href="/">← Back to Home</a>
+</body>
+</html>
+
+<style scoped>
+body {
+    font-family: system-ui;
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+h1 { color: #2563eb; }
+h2, h3 { 
+    color: #059669; 
+    margin-top: 2rem;
+}
+strong { color: #dc2626; }
+div {
+    background: #f3f4f6;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin: 1rem 0;
+}
+ul {
+    list-style: none;
+    padding: 0;
+}
+li {
+    margin: 0.5rem 0;
+}
+a {
+    color: #2563eb;
+    text-decoration: none;
+}
+a:hover {
+    text-decoration: underline;
+}
+</style>

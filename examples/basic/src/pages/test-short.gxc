@@ -1,0 +1,14 @@
+---
+userName := "Alice"
+itemCount := 42
+status := "active"
+---
+<!DOCTYPE html>
+<html>
+<head><title>Test Short Declarations</title></head>
+<body>
+  <h1>User: {userName}</h1>
+  <p>Items: {itemCount}</p>
+  <p>Status: {status}</p>
+</body>
+</html>

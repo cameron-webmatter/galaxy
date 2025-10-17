@@ -2,6 +2,7 @@ package executor
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 )
 
@@ -721,5 +722,573 @@ var user, err = models.GetUser("123")`
 
 	if errVal != nil {
 		t.Error("Expected err to be nil")
+	}
+}
+
+func TestMethodInvocation(t *testing.T) {
+	type TestStruct struct {
+		Value string
+	}
+
+	ts := &TestStruct{Value: "hello"}
+
+	ctx := NewContext()
+	ctx.Set("obj", ts)
+
+	code := `var result = obj.Value`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	result, ok := ctx.Get("result")
+	if !ok {
+		t.Fatal("Expected result to be set")
+	}
+
+	if result != "hello" {
+		t.Errorf("Expected result='hello', got %v", result)
+	}
+}
+
+type Calculator struct{}
+
+func (c *Calculator) Add(a, b int) int {
+	return a + b
+}
+
+func (c *Calculator) Divide(a, b int) (int, error) {
+	if b == 0 {
+		return 0, fmt.Errorf("division by zero")
+	}
+	return a / b, nil
+}
+
+func TestMethodCall(t *testing.T) {
+	calc := &Calculator{}
+
+	ctx := NewContext()
+	ctx.Set("calc", calc)
+
+	code := `var sum = calc.Add(5, 3)`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	sum, ok := ctx.Get("sum")
+	if !ok {
+		t.Fatal("Expected sum to be set")
+	}
+
+	if sum != 8 {
+		t.Errorf("Expected sum=8, got %v", sum)
+	}
+}
+
+func TestMethodCallWithReturn(t *testing.T) {
+	type User struct {
+		Name string
+	}
+
+	user := &User{Name: "John"}
+
+	ctx := NewContext()
+	ctx.Set("user", user)
+
+	code := `var name = user.Name`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	name, ok := ctx.Get("name")
+	if !ok {
+		t.Fatal("Expected name to be set")
+	}
+
+	if name != "John" {
+		t.Errorf("Expected name='John', got %v", name)
+	}
+}
+
+func TestMethodCallWithErrorReturn(t *testing.T) {
+	calc := &Calculator{}
+
+	ctx := NewContext()
+	ctx.Set("calc", calc)
+
+	code := `var result, err = calc.Divide(10, 2)`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	result, ok := ctx.Get("result")
+	if !ok {
+		t.Fatal("Expected result to be set")
+	}
+
+	if result != 5 {
+		t.Errorf("Expected result=5, got %v", result)
+	}
+
+	errVal, ok := ctx.Get("err")
+	if !ok {
+		t.Fatal("Expected err to be set")
+	}
+
+	if errVal != nil {
+		t.Errorf("Expected err=nil, got %v", errVal)
+	}
+}
+
+func TestPointerOperation(t *testing.T) {
+	ctx := NewContext()
+	ctx.Set("value", 42)
+
+	code := `var ptr = &value`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	ptr, ok := ctx.Get("ptr")
+	if !ok {
+		t.Fatal("Expected ptr to be set")
+	}
+
+	// Check it's a pointer
+	v := reflect.ValueOf(ptr)
+	if v.Kind() != reflect.Ptr {
+		t.Errorf("Expected pointer, got %v", v.Kind())
+	}
+
+	// Dereference and check value
+	if v.Elem().Interface() != 42 {
+		t.Errorf("Expected *ptr=42, got %v", v.Elem().Interface())
+	}
+}
+
+type StringBuilder struct {
+	data string
+}
+
+func (sb *StringBuilder) Append(s string) *StringBuilder {
+	sb.data += s
+	return sb
+}
+
+func (sb *StringBuilder) String() string {
+	return sb.data
+}
+
+func TestChainedMethodCalls(t *testing.T) {
+	sb := &StringBuilder{}
+
+	ctx := NewContext()
+	ctx.Set("sb", sb)
+
+	code := `var result = sb.Append("Hello").Append(" ").Append("World").String()`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	result, ok := ctx.Get("result")
+	if !ok {
+		t.Fatal("Expected result to be set")
+	}
+
+	if result != "Hello World" {
+		t.Errorf("Expected 'Hello World', got %v", result)
+	}
+}
+
+type UserRepository struct {
+	users map[string]string
+}
+
+func NewUserRepository() *UserRepository {
+	return &UserRepository{
+		users: map[string]string{"1": "John"},
+	}
+}
+
+func (r *UserRepository) FindByID(id string) (string, error) {
+	if user, ok := r.users[id]; ok {
+		return user, nil
+	}
+	return "", fmt.Errorf("user not found")
+}
+
+func TestConstructorFunction(t *testing.T) {
+	ctx := NewContext()
+
+	// Register constructor as package function
+	ctx.RegisterPackageFunc("repo", "NewUserRepository", func(args ...interface{}) (interface{}, error) {
+		return NewUserRepository(), nil
+	})
+
+	code := `import "repo"
+
+var userRepo = repo.NewUserRepository()
+var user, err = userRepo.FindByID("1")`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	user, ok := ctx.Get("user")
+	if !ok {
+		t.Fatal("Expected user to be set")
+	}
+
+	if user != "John" {
+		t.Errorf("Expected user='John', got %v", user)
+	}
+
+	errVal, ok := ctx.Get("err")
+	if !ok {
+		t.Fatal("Expected err to be set")
+	}
+
+	if errVal != nil {
+		t.Errorf("Expected err=nil, got %v", errVal)
+	}
+}
+
+func TestGalaxyLocalsNilCheck(t *testing.T) {
+	ctx := NewContext()
+	ctx.SetLocals(map[string]any{
+		"user": nil,
+	})
+
+	code := `
+if Galaxy.Locals.user == nil {
+	var result = "user is nil"
+}
+`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	result, ok := ctx.Get("result")
+	if !ok {
+		t.Fatal("Expected result to be set (user should be nil)")
+	}
+
+	if result != "user is nil" {
+		t.Errorf("Expected 'user is nil', got %v", result)
+	}
+}
+
+func TestGalaxyRedirectPascalCase(t *testing.T) {
+	ctx := NewContext()
+	ctx.SetLocals(map[string]any{"user": nil})
+
+	code := `
+if Galaxy.Locals.user == nil {
+	Galaxy.Redirect("/login", 302)
+}
+var shouldNotRun = "nope"
+`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	if !ctx.ShouldRedirect {
+		t.Error("Expected redirect to be triggered")
+	}
+
+	if ctx.RedirectURL != "/login" {
+		t.Errorf("Expected redirect to /login, got %s", ctx.RedirectURL)
+	}
+
+	_, ok := ctx.Get("shouldNotRun")
+	if ok {
+		t.Error("Code after redirect should not execute")
+	}
+}
+
+func TestDashboardPattern(t *testing.T) {
+	ctx := NewContext()
+	ctx.SetLocals(map[string]any{"user": nil})
+
+	code := `
+if Galaxy.Locals.user == nil {
+    Galaxy.Redirect("/login", 302)
+}
+
+userName := "User"
+`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	if !ctx.ShouldRedirect {
+		t.Error("Expected redirect")
+	}
+
+	if ctx.RedirectURL != "/login" {
+		t.Errorf("Expected /login, got %s", ctx.RedirectURL)
+	}
+
+	_, ok := ctx.Get("userName")
+	if ok {
+		t.Error("userName should not be set after redirect")
+	}
+}
+
+func TestGalaxyLocalsFieldAccess(t *testing.T) {
+	ctx := NewContext()
+	
+	// Test with actual user object
+	ctx.SetLocals(map[string]any{
+		"user": map[string]interface{}{"name": "John"},
+		"db": "mock-db",
+	})
+
+	code := `
+var user = Galaxy.Locals.user
+var db = Galaxy.Locals.db
+`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	user, ok := ctx.Get("user")
+	if !ok {
+		t.Fatal("Expected user")
+	}
+
+	userMap, ok := user.(map[string]interface{})
+	if !ok {
+		t.Fatalf("Expected map, got %T", user)
+	}
+
+	if userMap["name"] != "John" {
+		t.Errorf("Expected John, got %v", userMap["name"])
+	}
+}
+
+func TestGalaxyLocalsStepByStep(t *testing.T) {
+	ctx := NewContext()
+	ctx.SetLocals(map[string]any{
+		"user": "test-user",
+	})
+
+	// Step 1: Access Galaxy
+	code1 := `var g = Galaxy`
+	if err := ctx.Execute(code1); err != nil {
+		t.Fatalf("Step 1 failed: %v", err)
+	}
+	g, _ := ctx.Get("g")
+	t.Logf("Galaxy type: %T, value: %+v", g, g)
+
+	// Step 2: Access Galaxy.Locals
+	code2 := `var locals = Galaxy.Locals`
+	if err := ctx.Execute(code2); err != nil {
+		t.Fatalf("Step 2 failed: %v", err)
+	}
+	locals, _ := ctx.Get("locals")
+	t.Logf("Locals type: %T, value: %+v", locals, locals)
+
+	// Step 3: Access Galaxy.Locals.user (should fail here)
+	code3 := `var user = Galaxy.Locals.user`
+	if err := ctx.Execute(code3); err != nil {
+		t.Fatalf("Step 3 failed: %v", err)
+	}
+	user, _ := ctx.Get("user")
+	t.Logf("User type: %T, value: %+v", user, user)
+	
+	if user != "test-user" {
+		t.Errorf("Expected 'test-user', got %v", user)
+	}
+}
+
+func TestShortAssignmentMethodCall(t *testing.T) {
+	repo := &UserRepository{
+		users: map[string]string{"1": "Alice"},
+	}
+	
+	ctx := NewContext()
+	ctx.Set("repo", repo)
+	ctx.Set("id", "1")
+
+	code := `user, err := repo.FindByID(id)`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	user, ok := ctx.Get("user")
+	if !ok {
+		t.Fatal("Expected user to be set")
+	}
+
+	if user != "Alice" {
+		t.Errorf("Expected Alice, got %v", user)
+	}
+}
+
+func TestParamsAndMethodCall(t *testing.T) {
+	repo := &UserRepository{
+		users: map[string]string{"123": "Bob"},
+	}
+	
+	ctx := NewContext()
+	ctx.SetParams(map[string]string{"id": "123"})
+	ctx.Set("repo", repo)
+
+	code := `
+var idParam = id
+user, err := repo.FindByID(idParam)
+`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	idParam, ok := ctx.Get("idParam")
+	if !ok {
+		t.Fatal("Expected idParam")
+	}
+	t.Logf("idParam: %v (%T)", idParam, idParam)
+
+	user, ok := ctx.Get("user")
+	if !ok {
+		t.Fatal("Expected user")
+	}
+	t.Logf("user: %v (%T)", user, user)
+
+	if user != "Bob" {
+		t.Errorf("Expected Bob, got %v", user)
+	}
+}
+
+func TestRealWorldPattern(t *testing.T) {
+	repo := &UserRepository{
+		users: map[string]string{"valid-id": "TestUser"},
+	}
+	
+	ctx := NewContext()
+	ctx.Set("repo", repo)
+	ctx.Set("id", "valid-id")
+	
+	// Register uuid.Parse mock
+	ctx.RegisterPackageFunc("uuid", "Parse", func(args ...interface{}) (interface{}, error) {
+		if len(args) > 0 {
+			return args[0], nil // Return the ID as-is for test
+		}
+		return nil, fmt.Errorf("invalid")
+	})
+
+	code := `import "uuid"
+
+projectUUID, err := uuid.Parse(id)
+if err != nil {
+	var failed = "parse failed"
+}
+
+user, err := repo.FindByID(projectUUID)
+if err != nil {
+	var failed2 = "find failed"
+}
+`
+
+	execErr := ctx.Execute(code)
+	if execErr != nil {
+		t.Fatalf("Execute failed: %v", execErr)
+	}
+
+	projectUUID, ok := ctx.Get("projectUUID")
+	if !ok {
+		t.Fatal("Expected projectUUID")
+	}
+	t.Logf("projectUUID: %v (%T)", projectUUID, projectUUID)
+
+	user, ok := ctx.Get("user")
+	if !ok {
+		t.Fatal("Expected user")
+	}
+	t.Logf("user: %v (%T)", user, user)
+
+	if user != "TestUser" {
+		t.Errorf("Expected TestUser, got %v", user)
+	}
+}
+
+func TestMethodCallReturnsError(t *testing.T) {
+	repo := &UserRepository{
+		users: map[string]string{},
+	}
+	
+	ctx := NewContext()
+	ctx.Set("repo", repo)
+
+	code := `user, err := repo.FindByID("missing")`
+
+	execErr := ctx.Execute(code)
+	if execErr != nil {
+		t.Fatalf("Execute failed: %v", execErr)
+	}
+
+	user, _ := ctx.Get("user")
+	t.Logf("user: %v (%T)", user, user)
+
+	errVal, ok := ctx.Get("err")
+	if !ok {
+		t.Fatal("Expected err")
+	}
+	t.Logf("err: %v (%T)", errVal, errVal)
+
+	if errVal == nil {
+		t.Error("Expected error to be non-nil")
+	}
+}
+
+func (r *UserRepository) FindNil(id string) (*UserRepository, error) {
+	return nil, nil
+}
+
+func TestMethodCallReturnsNilValue(t *testing.T) {
+	repo := &UserRepository{}
+	
+	ctx := NewContext()
+	ctx.Set("repo", repo)
+
+	code := `result, err := repo.FindNil("test")`
+
+	execErr := ctx.Execute(code)
+	if execErr != nil {
+		t.Fatalf("Execute failed: %v", execErr)
+	}
+
+	result, ok := ctx.Get("result")
+	if !ok {
+		t.Fatal("Expected result")
+	}
+	t.Logf("result: %v (%T)", result, result)
+
+	if result != nil {
+		t.Errorf("Expected nil, got %v", result)
 	}
 }

@@ -1,0 +1,30 @@
+---
+type Address struct {
+    Street string
+    City   string
+}
+
+type Person struct {
+    Name    string
+    Address *Address
+}
+
+addr := &Address{
+    Street: "123 Main St",
+    City:   "Portland",
+}
+
+person := Person{
+    Name:    "Alice",
+    Address: addr,
+}
+---
+<!DOCTYPE html>
+<html>
+<body>
+  <h1>Nested Field Test</h1>
+  <p>Person: {person.Name}</p>
+  <p>Street: {person.Address.Street}</p>
+  <p>City: {person.Address.City}</p>
+</body>
+</html>
