@@ -116,9 +116,41 @@ func (c *EndpointCompiler) compile(filePath string, methods []string) (string, e
 	soPath := filepath.Join(c.CacheDir, fmt.Sprintf("endpoint-%s.so", hash))
 
 	dir := filepath.Dir(filePath)
-	pkgName := filepath.Base(dir)
 	relPath, _ := filepath.Rel(c.BaseDir, dir)
-	importPath := filepath.Join(c.ModuleName, relPath)
+
+	// Sanitize path: replace brackets for valid Go paths
+	sanitizedRelPath := strings.ReplaceAll(relPath, "[", "_")
+	sanitizedRelPath = strings.ReplaceAll(sanitizedRelPath, "]", "_")
+
+	// Copy source to cache with sanitized path
+	cacheSourceDir := filepath.Join(c.CacheDir, "src", sanitizedRelPath)
+	if err := os.MkdirAll(cacheSourceDir, 0755); err != nil {
+		return "", err
+	}
+
+	sourceContent, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+
+	// Strip build tags from copied source
+	content := string(sourceContent)
+	lines := strings.Split(content, "\n")
+	var filtered []string
+	for _, line := range lines {
+		if !strings.HasPrefix(strings.TrimSpace(line), "//go:build") && !strings.HasPrefix(strings.TrimSpace(line), "// +build") {
+			filtered = append(filtered, line)
+		}
+	}
+	content = strings.Join(filtered, "\n")
+
+	cacheSourcePath := filepath.Join(cacheSourceDir, filepath.Base(filePath))
+	if err := os.WriteFile(cacheSourcePath, []byte(content), 0644); err != nil {
+		return "", err
+	}
+
+	pkgName := filepath.Base(cacheSourceDir)
+	importPath := filepath.Join(c.ModuleName, ".galaxy/endpoints/src", sanitizedRelPath)
 
 	var methodExports strings.Builder
 	for _, method := range methods {
