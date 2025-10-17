@@ -90,7 +90,6 @@ func (c *EndpointCompiler) Load(filePath string) (*LoadedEndpoint, error) {
 func (c *EndpointCompiler) detectMethods(filePath string) []string {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
-		fmt.Printf("DEBUG: Failed to read %s: %v\n", filePath, err)
 		return nil
 	}
 
@@ -102,11 +101,9 @@ func (c *EndpointCompiler) detectMethods(filePath string) []string {
 		pattern := fmt.Sprintf("func %s(", method)
 		if strings.Contains(src, pattern) {
 			methods = append(methods, method)
-			fmt.Printf("DEBUG: Found method %s in %s\n", method, filePath)
 		}
 	}
 
-	fmt.Printf("DEBUG: Detected %d methods in %s\n", len(methods), filePath)
 	return methods
 }
 
@@ -143,16 +140,10 @@ import (
 		return "", err
 	}
 
-	fmt.Printf("DEBUG: Generated plugin:\n%s\n", pluginSrc)
-
 	cmd := exec.Command("go", "build", "-buildmode=plugin", "-o", soPath, pluginPath)
 	cmd.Dir = c.BaseDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		fmt.Printf("DEBUG: Compile failed for %s\n", pluginPath)
-		fmt.Printf("DEBUG: Command: go build -buildmode=plugin -o %s %s\n", soPath, pluginPath)
-		fmt.Printf("DEBUG: Working dir: %s\n", c.BaseDir)
-		fmt.Printf("DEBUG: Output: %s\n", string(output))
 		return "", fmt.Errorf("compile plugin: %w\n%s", err, string(output))
 	}
 
