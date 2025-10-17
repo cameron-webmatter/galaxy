@@ -1,4 +1,4 @@
-module galaxy-server
+module generated-hybrid
 
 go 1.23
 

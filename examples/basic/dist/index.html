@@ -4,9 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome to Galaxy</title>
-<link rel="stylesheet" href="/_assets/styles-b18c3e7b.css">
 </head>
-<body data-gxc-1d9147>
+<body>
     <header>
         <h1>Welcome to Galaxy</h1>
         <p>A Go-powered web framework</p>
@@ -16,7 +15,7 @@
         <section>
             <h2>Features</h2>
             <ul>
-                <li>Fast</li><li>Type-safe</li><li>Go runtime</li>
+                <li galaxy:for={feature in features}>{feature}</li>
             </ul>
         </section>
 

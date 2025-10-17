@@ -1,227 +1,128 @@
 package main
 
 import (
-	"fmt"
-	"log"
 	"net/http"
-	"os"
-	"path/filepath"
+	"log"
+	
 	"strings"
-
-	"github.com/galaxy/galaxy/pkg/compiler"
-	"github.com/galaxy/galaxy/pkg/endpoints"
-	"github.com/galaxy/galaxy/pkg/executor"
-	"github.com/galaxy/galaxy/pkg/middleware"
-	"github.com/galaxy/galaxy/pkg/parser"
-	"github.com/galaxy/galaxy/pkg/router"
-	"github.com/galaxy/galaxy/pkg/ssr"
-	"github.com/galaxy/galaxy/pkg/template"
-	"github.com/galaxy/galaxy/pkg/wasm"
-
 	
-	
+	"generated-hybrid/runtime"
 )
-
-var (
-	rt           *router.Router
-	comp         *compiler.ComponentCompiler
-	baseDir      string
-	pagesDir     = "pages"
-	wasmManifest *wasm.WasmManifest
-	routeMap     = map[string]*routeInfo{
-		
-		"/dynamic": {Pattern: "/dynamic", FilePath: "pages/dynamic.gxc", IsEndpoint: false},
-		
-		"/wasm-dynamic": {Pattern: "/wasm-dynamic", FilePath: "pages/wasm-dynamic.gxc", IsEndpoint: false},
-		
-	}
-	endpointHandlers = map[string]map[string]endpoints.HandlerFunc{
-		
-	}
-)
-
-type routeInfo struct {
-	Pattern    string
-	FilePath   string
-	IsEndpoint bool
-}
 
 func main() {
-	exePath, err := os.Executable()
-	if err != nil {
-		log.Fatal(err)
-	}
-	baseDir = filepath.Dir(exePath)
-	comp = compiler.NewComponentCompiler(baseDir)
-
-	manifestPath := filepath.Join(baseDir, "_assets", "wasm-manifest.json")
-	wasmManifest, _ = wasm.LoadManifest(manifestPath)
-
-	http.HandleFunc("/", handleRequest)
-
-	addr := "localhost:4322"
-	log.Printf("🚀 Server running at http://%s\n", addr)
+	log.Println("Starting server...")
 	
+	http.Handle("/_assets/", http.StripPrefix("/_assets/", http.FileServer(http.Dir("_assets"))))
+	http.Handle("/wasm_exec.js", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "wasm_exec.js")
+	}))
+	
+		http.HandleFunc("/dynamic", func(w http.ResponseWriter, r *http.Request) {
+		params := make(map[string]string)
+		HandleDynamic(w, r, params)
+	})
+	http.HandleFunc("/wasm-dynamic", func(w http.ResponseWriter, r *http.Request) {
+		params := make(map[string]string)
+		HandleWasmDynamic(w, r, params)
+	})
+	
+	addr := ":4322"
+	log.Printf("🚀 Server running at http://localhost%s\n", addr)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func handleRequest(w http.ResponseWriter, r *http.Request) {
-	if strings.HasPrefix(r.URL.Path, "/_assets/") {
-		assetsPath := filepath.Join(baseDir, r.URL.Path)
-		http.ServeFile(w, r, assetsPath)
-		return
-	}
-
-	if r.URL.Path == "/wasm_exec.js" {
-		wasmExecPath := filepath.Join(baseDir, "wasm_exec.js")
-		http.ServeFile(w, r, wasmExecPath)
-		return
-	}
-
-	if filepath.Ext(r.URL.Path) != "" {
-		http.ServeFile(w, r, filepath.Join("/Users/cameron/dev/galaxy/examples/hybrid/dist/public", r.URL.Path))
-		return
-	}
-
-	staticPath := filepath.Join("/Users/cameron/dev/galaxy/examples/hybrid/dist", r.URL.Path)
-	if r.URL.Path == "/" {
-		staticPath = filepath.Join("/Users/cameron/dev/galaxy/examples/hybrid/dist", "index.html")
-	} else {
-		staticPath = filepath.Join("/Users/cameron/dev/galaxy/examples/hybrid/dist", r.URL.Path, "index.html")
+func extractParams(path, pattern string) map[string]string {
+	params := make(map[string]string)
+	
+	pathParts := strings.Split(strings.Trim(path, "/"), "/")
+	patternParts := strings.Split(strings.Trim(pattern, "/"), "/")
+	
+	if len(pathParts) != len(patternParts) {
+		return params
 	}
 	
-	if _, err := os.Stat(staticPath); err == nil {
-		http.ServeFile(w, r, staticPath)
-		return
-	}
-
-	route, ok := routeMap[r.URL.Path]
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
-
-	mwCtx := middleware.NewContext(w, r)
-	mwCtx.Params = make(map[string]string)
-
-	
-	if route.IsEndpoint {
-		handleEndpoint(route, mwCtx)
-		return
-	}
-	handlePage(route, mwCtx)
-	
-}
-
-func handleEndpoint(route *routeInfo, mwCtx *middleware.Context) {
-	ep, ok := endpointHandlers[route.Pattern]
-	if !ok {
-		http.Error(mwCtx.Response, "Endpoint not found", http.StatusNotFound)
-		return
-	}
-
-	method := mwCtx.Request.Method
-	handler, ok := ep[method]
-	if !ok {
-		handler, ok = ep["ALL"]
-		if !ok {
-			http.Error(mwCtx.Response, "Method not allowed", http.StatusMethodNotAllowed)
-			return
+	for i, part := range patternParts {
+		if strings.HasPrefix(part, "[") && strings.HasSuffix(part, "]") {
+			key := strings.Trim(part, "[]")
+			params[key] = pathParts[i]
+		} else if strings.HasPrefix(part, "{") && strings.HasSuffix(part, "}") {
+			key := strings.Trim(part, "{}")
+			params[key] = pathParts[i]
 		}
 	}
-
-	ctx := endpoints.NewContext(mwCtx.Response, mwCtx.Request, mwCtx.Params, mwCtx.Locals)
-	if err := handler(ctx); err != nil {
-		http.Error(mwCtx.Response, err.Error(), http.StatusInternalServerError)
-	}
+	
+	return params
 }
 
-func handlePage(route *routeInfo, mwCtx *middleware.Context) {
-	filePath := filepath.Join(baseDir, route.FilePath)
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		http.Error(mwCtx.Response, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	parsed, err := parser.Parse(string(content))
-	if err != nil {
-		http.Error(mwCtx.Response, fmt.Sprintf("Parse error: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	resolver := comp.Resolver
-	resolver.SetCurrentFile(filePath)
-
-	imports := make([]compiler.Import, len(parsed.Imports))
-	for i, imp := range parsed.Imports {
-		imports[i] = compiler.Import{
-			Path:        imp.Path,
-			Alias:       imp.Alias,
-			IsComponent: imp.IsComponent,
-		}
-	}
-	resolver.ParseImports(imports)
-
-	ctx := executor.NewContext()
-
-	reqCtx := ssr.NewRequestContext(mwCtx.Request, mwCtx.Params)
-	ctx.SetRequest(reqCtx)
-	ctx.SetLocals(mwCtx.Locals)
-
-	for k, v := range mwCtx.Params {
+func HandleDynamic(w http.ResponseWriter, r *http.Request, params map[string]string) {
+	
+	
+	var title = "Dynamic Page"
+// prerender = false
+	
+	ctx := runtime.NewRenderContext()
+	ctx.RoutePath = "pages/dynamic.gxc"
+	for k, v := range params {
 		ctx.Set(k, v)
 	}
-
-	if parsed.Frontmatter != "" {
-		if err := ctx.Execute(parsed.Frontmatter); err != nil {
-			http.Error(mwCtx.Response, fmt.Sprintf("Execution error: %v", err), http.StatusInternalServerError)
-			return
-		}
-	}
-
-	comp.CollectedStyles = nil
-	processedTemplate := comp.ProcessComponentTags(parsed.Template, ctx)
-
-	engine := template.NewEngine(ctx)
-	rendered, err := engine.Render(processedTemplate, nil)
-	if err != nil {
-		http.Error(mwCtx.Response, fmt.Sprintf("Render error: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	allStyles := append(parsed.Styles, comp.CollectedStyles...)
-	if len(allStyles) > 0 {
-		var styleContent string
-		for _, style := range allStyles {
-			styleContent += style.Content + "\n"
-		}
-		styleTag := "<style>" + styleContent + "</style>"
-		rendered = strings.Replace(rendered, "</head>", styleTag+"\n</head>", 1)
-	}
-
-	if wasmManifest != nil {
-		pageAssets, ok := wasmManifest.Assets[route.FilePath]
-		if ok && len(pageAssets.WasmModules) > 0 {
-			wasmExecTag := "<script src=\"/wasm_exec.js\"></script>"
-			rendered = strings.Replace(rendered, "</body>", wasmExecTag+"\n</body>", 1)
-
-			for _, mod := range pageAssets.WasmModules {
-				loaderTag := fmt.Sprintf("<script src=\"%s\"></script>", mod.LoaderPath)
-				rendered = strings.Replace(rendered, "</body>", loaderTag+"\n</body>", 1)
-			}
-		}
-
-		if len(pageAssets.JSScripts) > 0 {
-			for _, jsPath := range pageAssets.JSScripts {
-				jsTag := fmt.Sprintf("<script type=\"module\" src=\"%s\"></script>", jsPath)
-				rendered = strings.Replace(rendered, "</body>", jsTag+"\n</body>", 1)
-			}
-		}
-	}
-
-	mwCtx.Response.Header().Set("Content-Type", "text/html; charset=utf-8")
-	mwCtx.Response.Write([]byte(rendered))
+	
+		ctx.Set("title", title)
+	
+	html := runtime.RenderTemplate(ctx, templateHandleDynamic)
+	w.Write([]byte(html))
 }
+
+const templateHandleDynamic = `<!DOCTYPE html>
+<html>
+<head>
+    <title>{title}</title>
+</head>
+<body>
+    <h1>Dynamic Page (SSR)</h1>
+    <p>This page is rendered on-demand.</p>
+    <div galaxy:if={Request}>
+        <p>Request path: {Request.Path()}</p>
+        <p>Request method: {Request.Method()}</p>
+    </div>
+    <nav>
+        <a href="/">Static Home</a>
+    </nav>
+</body>
+</html>`
+
+
+func HandleWasmDynamic(w http.ResponseWriter, r *http.Request, params map[string]string) {
+	
+	
+	// prerender = false
+var title = "Hybrid WASM (Dynamic)"
+	
+	ctx := runtime.NewRenderContext()
+	ctx.RoutePath = "pages/wasm-dynamic.gxc"
+	for k, v := range params {
+		ctx.Set(k, v)
+	}
+	
+		ctx.Set("title", title)
+	
+	html := runtime.RenderTemplate(ctx, templateHandleWasmDynamic)
+	w.Write([]byte(html))
+}
+
+const templateHandleWasmDynamic = `<!DOCTYPE html>
+<html>
+<head>
+    <title>{title}</title>
+</head>
+<body>
+    <h1>{title}</h1>
+    <p>Dynamic SSR page with WASM</p>
+    
+    <div id="app">
+        <button id="btn">Click Count: <span id="count">0</span></button>
+    </div>
+</body>
+</html>`
+

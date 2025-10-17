@@ -1,4 +1,4 @@
-module galaxy-server
+module ssr-server
 
 go 1.23
 

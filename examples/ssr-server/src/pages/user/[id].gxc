@@ -1,0 +1,44 @@
+---
+var title = "User Profile"
+var userId = Galaxy.Params["id"]
+---
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{title}</title>
+</head>
+<body>
+    <h1>User Profile Page</h1>
+    
+    <div>
+        <h2>Galaxy.Params Test</h2>
+        <p>User ID via Galaxy.Params: <strong>{userId}</strong></p>
+        <p>User ID via direct access: <strong>{id}</strong></p>
+    </div>
+
+    <div galaxy:if={Request}>
+        <p>Path: {Request.Path()}</p>
+        <p>Method: {Request.Method()}</p>
+    </div>
+
+    <a href="/">← Home</a>
+</body>
+</html>
+
+<style scoped>
+body {
+    font-family: system-ui;
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 1rem;
+}
+h1 { color: #2563eb; }
+h2 { color: #059669; }
+strong { color: #dc2626; }
+div {
+    background: #f3f4f6;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin: 1rem 0;
+}
+</style>
