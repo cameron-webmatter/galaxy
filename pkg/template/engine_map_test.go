@@ -27,10 +27,11 @@ func TestMapPropertyAccess(t *testing.T) {
 
 func TestMapIteration(t *testing.T) {
 	ctx := executor.NewContext()
-	ctx.Execute(`var posts = []map[string]string{
+	posts := []map[string]interface{}{
 		{"title": "First Post", "slug": "first-post"},
 		{"title": "Second Post", "slug": "second-post"},
-	}`)
+	}
+	ctx.Set("posts", posts)
 
 	engine := NewEngine(ctx)
 	template := `<li galaxy:for={post in posts}>{post.title} - {post.slug}</li>`
@@ -70,10 +71,11 @@ func TestMapWithIntValues(t *testing.T) {
 
 func TestNestedMapAccess(t *testing.T) {
 	ctx := executor.NewContext()
-	ctx.Execute(`var items = []map[string]string{
+	items := []map[string]interface{}{
 		{"name": "Item A", "price": "10"},
 		{"name": "Item B", "price": "20"},
-	}`)
+	}
+	ctx.Set("items", items)
 
 	engine := NewEngine(ctx)
 	template := `<li galaxy:for={item in items}>{item.name}: ${item.price}</li>`

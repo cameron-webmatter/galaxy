@@ -2,11 +2,14 @@ package server
 
 import (
 	"fmt"
+	"log"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/galaxy/galaxy/internal/assets"
@@ -36,10 +39,27 @@ type DevServer struct {
 	LoadedMiddleware   *middleware.LoadedMiddleware
 	MiddlewareChain    *middleware.Chain
 	HasMiddleware      bool
+	UseCodegen         bool
+	PageCache          *PageCache
+	PluginCompiler     *PluginCompiler
+	compileMu          sync.Mutex
 }
 
 func NewDevServer(rootDir, pagesDir, publicDir string, port int, verbose bool) *DevServer {
 	srcDir := filepath.Dir(pagesDir)
+
+	useCodegen := os.Getenv("GALAXY_USE_CODEGEN") == "true"
+
+	galaxyPath := "../../../galaxy"
+	if gp := os.Getenv("GALAXY_PATH"); gp != "" {
+		galaxyPath = gp
+	}
+
+	// Convert to absolute path for plugin go.mod replace directive
+	if absPath, err := filepath.Abs(galaxyPath); err == nil {
+		galaxyPath = absPath
+	}
+
 	srv := &DevServer{
 		Router:             router.NewRouter(pagesDir),
 		RootDir:            rootDir,
@@ -51,6 +71,9 @@ func NewDevServer(rootDir, pagesDir, publicDir string, port int, verbose bool) *
 		EndpointCompiler:   endpoints.NewCompiler(rootDir, ".galaxy/endpoints"),
 		MiddlewareCompiler: middleware.NewCompiler(rootDir, ".galaxy/middleware"),
 		Verbose:            verbose,
+		UseCodegen:         useCodegen,
+		PageCache:          NewPageCache(),
+		PluginCompiler:     NewPluginCompiler(".galaxy", "dev-server", galaxyPath, rootDir),
 	}
 
 	middlewarePath := filepath.Join(srcDir, "middleware.go")
@@ -246,6 +269,11 @@ func (s *DevServer) handleEndpoint(route *router.Route, mwCtx *middleware.Contex
 }
 
 func (s *DevServer) handlePage(route *router.Route, mwCtx *middleware.Context, params map[string]string) {
+	if s.UseCodegen {
+		s.handlePageWithCodegen(route, mwCtx, params)
+		return
+	}
+
 	content, err := os.ReadFile(route.FilePath)
 	if err != nil {
 		http.Error(mwCtx.Response, err.Error(), http.StatusInternalServerError)
@@ -272,6 +300,34 @@ func (s *DevServer) handlePage(route *router.Route, mwCtx *middleware.Context, p
 	resolver.ParseImports(imports)
 
 	ctx := executor.NewContext()
+
+	// Register common Go functions for frontmatter debugging
+	ctx.RegisterPackageFunc("fmt", "Printf", func(args ...interface{}) (interface{}, error) {
+		if len(args) > 0 {
+			format, ok := args[0].(string)
+			if ok {
+				fmt.Printf(format, args[1:]...)
+			}
+		}
+		return nil, nil
+	})
+	ctx.RegisterPackageFunc("fmt", "Println", func(args ...interface{}) (interface{}, error) {
+		fmt.Println(args...)
+		return nil, nil
+	})
+	ctx.RegisterPackageFunc("log", "Printf", func(args ...interface{}) (interface{}, error) {
+		if len(args) > 0 {
+			format, ok := args[0].(string)
+			if ok {
+				log.Printf(format, args[1:]...)
+			}
+		}
+		return nil, nil
+	})
+	ctx.RegisterPackageFunc("log", "Println", func(args ...interface{}) (interface{}, error) {
+		log.Println(args...)
+		return nil, nil
+	})
 
 	reqCtx := ssr.NewRequestContext(mwCtx.Request, params)
 	ctx.SetRequest(reqCtx)
@@ -371,4 +427,128 @@ func (s *DevServer) serveWasmExec(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.ServeFile(w, r, wasmExecPath)
+}
+
+func (s *DevServer) handlePageWithCodegen(route *router.Route, mwCtx *middleware.Context, params map[string]string) {
+	content, err := os.ReadFile(route.FilePath)
+	if err != nil {
+		http.Error(mwCtx.Response, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	comp, err := parser.Parse(string(content))
+	if err != nil {
+		http.Error(mwCtx.Response, fmt.Sprintf("Parse error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Process component tags BEFORE compiling
+	// This resolves <Layout>, <Nav>, etc.
+	resolver := s.Compiler.Resolver
+	resolver.SetCurrentFile(route.FilePath)
+
+	imports := make([]compiler.Import, len(comp.Imports))
+	for i, imp := range comp.Imports {
+		imports[i] = compiler.Import{
+			Path:        imp.Path,
+			Alias:       imp.Alias,
+			IsComponent: imp.IsComponent,
+		}
+	}
+	resolver.ParseImports(imports)
+
+	// Create minimal executor context for component processing only
+	dummyCtx := executor.NewContext()
+	s.Compiler.CollectedStyles = nil
+	processedTemplate := s.Compiler.ProcessComponentTags(comp.Template, dummyCtx)
+
+	// Update component with processed template
+	comp.Template = processedTemplate
+
+	fmHash := HashContent(comp.Frontmatter)
+	tmplHash := HashContent(comp.Template)
+
+	// Check cache without lock (fast path)
+	cached, ok := s.PageCache.Get(route.Pattern)
+	if ok && cached.FrontmatterHash == fmHash {
+		if cached.TemplateHash != tmplHash {
+			cached.Template = comp.Template
+			cached.TemplateHash = tmplHash
+		}
+		fmt.Printf("⚡ Cache hit (in-memory): %s\n", route.Pattern)
+	} else {
+		// Lock during compilation to prevent duplicate compiles
+		s.compileMu.Lock()
+
+		// Double-check cache after acquiring lock
+		cached, ok = s.PageCache.Get(route.Pattern)
+		if ok && cached.FrontmatterHash == fmHash {
+			s.compileMu.Unlock()
+			fmt.Printf("⚡ Cache hit (after lock): %s\n", route.Pattern)
+		} else {
+			plugin, err := s.PluginCompiler.CompilePage(route, comp, fmHash)
+			s.compileMu.Unlock()
+
+			if err != nil {
+				http.Error(mwCtx.Response, fmt.Sprintf("Compile error:\n%v", err), http.StatusInternalServerError)
+				return
+			}
+			s.PageCache.Set(route.Pattern, plugin)
+			cached = plugin
+		}
+	}
+
+	// Bundle styles, scripts, and WASM
+	allStyles := append(comp.Styles, s.Compiler.CollectedStyles...)
+	compWithStyles := &parser.Component{
+		Frontmatter: comp.Frontmatter,
+		Template:    comp.Template,
+		Scripts:     comp.Scripts,
+		Styles:      allStyles,
+		Imports:     comp.Imports,
+	}
+
+	cssPath, err := s.Bundler.BundleStyles(compWithStyles, route.FilePath)
+	if err != nil {
+		http.Error(mwCtx.Response, fmt.Sprintf("Style bundle error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	jsPath, err := s.Bundler.BundleScripts(comp, route.FilePath)
+	if err != nil {
+		http.Error(mwCtx.Response, fmt.Sprintf("Script bundle error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	wasmAssets, err := s.Bundler.BundleWasmScripts(comp, route.FilePath)
+	if err != nil {
+		http.Error(mwCtx.Response, fmt.Sprintf("WASM bundle error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	scopeID := ""
+	for _, style := range allStyles {
+		if style.Scoped {
+			scopeID = s.Bundler.GenerateScopeID(route.FilePath)
+			break
+		}
+	}
+
+	// Capture handler output using httptest.ResponseRecorder
+	originalWriter := mwCtx.Response
+	recorder := httptest.NewRecorder()
+	mwCtx.Response = recorder
+
+	// Call plugin handler
+	cached.Handler(mwCtx.Response, mwCtx.Request, params, mwCtx.Locals)
+
+	// Get captured HTML
+	rendered := recorder.Body.String()
+
+	// Inject assets (WASM, CSS, JS)
+	rendered = s.Bundler.InjectAssetsWithWasm(rendered, cssPath, jsPath, scopeID, wasmAssets)
+
+	// Write final output to original writer
+	originalWriter.Header().Set("Content-Type", "text/html; charset=utf-8")
+	originalWriter.Write([]byte(rendered))
 }

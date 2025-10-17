@@ -508,7 +508,16 @@ func (e *Engine) renderForDirective(template string) string {
 					items[i] = n
 				}
 			default:
-				return fmt.Sprintf("<%s %s>%s</%s>", tag, attrs, content, tag)
+				// Use reflection to handle any slice type ([]MyStruct, []*MyStruct, etc.)
+				rv := reflect.ValueOf(val)
+				if rv.Kind() == reflect.Slice {
+					items = make([]interface{}, rv.Len())
+					for i := 0; i < rv.Len(); i++ {
+						items[i] = rv.Index(i).Interface()
+					}
+				} else {
+					return fmt.Sprintf("<%s %s>%s</%s>", tag, attrs, content, tag)
+				}
 			}
 
 			if len(items) > 0 {
@@ -738,10 +747,8 @@ func (e *Engine) evaluateExpression(expr string) (string, bool) {
 	varName := parts[0]
 	val, ok := e.ctx.Get(varName)
 	if !ok {
-		fmt.Printf("DEBUG: Variable '%s' not found in context\n", varName)
 		return "", false
 	}
-	fmt.Printf("DEBUG: Found variable '%s' with type %T\n", varName, val)
 
 	methodCall := parts[1]
 	if strings.HasSuffix(methodCall, "()") {
@@ -775,17 +782,31 @@ func (e *Engine) evaluateExpression(expr string) (string, bool) {
 			}
 		}
 
-		// Try reflection for struct fields
+		// Try reflection for struct fields (handle multi-level: project.Owner.Name)
 		v := reflect.ValueOf(val)
-		if v.Kind() == reflect.Ptr {
-			v = v.Elem()
-		}
-		if v.Kind() == reflect.Struct {
-			field := v.FieldByName(parts[1])
-			if field.IsValid() {
-				return fmt.Sprintf("%v", field.Interface()), true
+
+		// Navigate through all field parts (parts[1], parts[2], etc.)
+		for i := 1; i < len(parts); i++ {
+			// Dereference pointers
+			for v.Kind() == reflect.Ptr {
+				if v.IsNil() {
+					return "", false
+				}
+				v = v.Elem()
+			}
+
+			if v.Kind() == reflect.Struct {
+				field := v.FieldByName(parts[i])
+				if !field.IsValid() {
+					return "", false
+				}
+				v = field
+			} else {
+				return "", false
 			}
 		}
+
+		return fmt.Sprintf("%v", v.Interface()), true
 	}
 
 	return "", false

@@ -119,8 +119,6 @@ func (c *Context) Execute(code string) error {
 	imports, codeWithoutImports := extractImports(code)
 	wrappedCode := "package main\n" + imports + "func init() {\n" + codeWithoutImports + "\n}"
 
-	fmt.Printf("DEBUG Execute: wrapped code:\n%s\n", wrappedCode)
-
 	node, err := parser.ParseFile(fset, "", wrappedCode, parser.AllErrors)
 	if err != nil {
 		return fmt.Errorf("parse error: %w", err)
@@ -234,19 +232,11 @@ func (c *Context) executeAssignStmt(stmt *ast.AssignStmt) error {
 					return err
 				}
 
-				fmt.Printf("DEBUG executeAssignStmt: %s, %s := ... result type=%T, value=%v\n",
-					ident1.Name, ident2.Name, result, result)
-
 				// Check if result is a multi-value tuple
 				if resultSlice, ok := result.([]interface{}); ok && len(resultSlice) == 2 {
-					fmt.Printf("DEBUG: Unpacking tuple - %s=%v (%T), %s=%v (%T)\n",
-						ident1.Name, resultSlice[0], resultSlice[0],
-						ident2.Name, resultSlice[1], resultSlice[1])
 					c.Variables[ident1.Name] = resultSlice[0]
 					c.Variables[ident2.Name] = resultSlice[1]
 				} else {
-					fmt.Printf("DEBUG: Single value - %s=%v (%T), %s=nil\n",
-						ident1.Name, result, result, ident2.Name)
 					c.Variables[ident1.Name] = result
 					c.Variables[ident2.Name] = nil
 				}
@@ -280,19 +270,11 @@ func (c *Context) processVarSpec(spec *ast.ValueSpec) error {
 			return err
 		}
 
-		fmt.Printf("DEBUG processVarSpec: result type=%T, value=%v\n", result, result)
-
 		// Check if result is a multi-value tuple (slice with 2 elements)
 		if resultSlice, ok := result.([]interface{}); ok && len(resultSlice) == 2 {
-			fmt.Printf("DEBUG: Storing %s=%v (%T), %s=%v (%T)\n",
-				spec.Names[0].Name, resultSlice[0], resultSlice[0],
-				spec.Names[1].Name, resultSlice[1], resultSlice[1])
 			c.Variables[spec.Names[0].Name] = resultSlice[0]
 			c.Variables[spec.Names[1].Name] = resultSlice[1]
 		} else {
-			// Single value, second is error placeholder
-			fmt.Printf("DEBUG: Storing %s=%v (%T), %s=nil\n",
-				spec.Names[0].Name, result, result, spec.Names[1].Name)
 			c.Variables[spec.Names[0].Name] = result
 			c.Variables[spec.Names[1].Name] = nil
 		}
@@ -304,6 +286,13 @@ func (c *Context) processVarSpec(spec *ast.ValueSpec) error {
 			value, err := c.evalExpr(spec.Values[i])
 			if err != nil {
 				return err
+			}
+			// If single var gets tuple from PackageFunc/method, unwrap first value
+			if len(spec.Names) == 1 {
+				if tuple, ok := value.([]interface{}); ok && len(tuple) == 2 {
+					// Unwrap tuple for single assignment
+					value = tuple[0]
+				}
 			}
 			c.Variables[name.Name] = value
 		}
@@ -431,6 +420,14 @@ func (c *Context) evalUnaryExpr(expr *ast.UnaryExpr) (interface{}, error) {
 		if v, ok := x.(bool); ok {
 			return !v, nil
 		}
+	case token.AND:
+		// Address-of operator
+		if x == nil {
+			return nil, fmt.Errorf("cannot take address of nil")
+		}
+		ptr := reflect.New(reflect.TypeOf(x))
+		ptr.Elem().Set(reflect.ValueOf(x))
+		return ptr.Interface(), nil
 	}
 	return nil, fmt.Errorf("unsupported unary operator: %v", expr.Op)
 }
@@ -520,16 +517,19 @@ func (c *Context) evalTypeAssertExpr(expr *ast.TypeAssertExpr) (interface{}, err
 func (c *Context) evalCallExpr(expr *ast.CallExpr) (interface{}, error) {
 	if sel, ok := expr.Fun.(*ast.SelectorExpr); ok {
 		if ident, ok := sel.X.(*ast.Ident); ok && ident.Name == "Galaxy" {
-			if sel.Sel.Name == "redirect" {
+			if sel.Sel.Name == "redirect" || sel.Sel.Name == "Redirect" {
 				return c.handleGalaxyRedirect(expr.Args)
 			}
 		}
 
-		pkgName, err := c.evalExpr(sel.X)
-		if err == nil && pkgName != nil {
-			return nil, nil
+		// Try evaluating selector X as object with method
+		obj, err := c.evalExpr(sel.X)
+		if err == nil && obj != nil {
+			// Check if it's a method call on an object
+			return c.invokeMethod(obj, sel.Sel.Name, expr.Args)
 		}
 
+		// Try as package function
 		if ident, ok := sel.X.(*ast.Ident); ok {
 			key := ident.Name + "." + sel.Sel.Name
 			if fn, exists := c.PackageFuncs[key]; exists {
@@ -566,6 +566,129 @@ func (c *Context) evalCallExpr(expr *ast.CallExpr) (interface{}, error) {
 		}
 	}
 	return nil, nil
+}
+
+func (c *Context) invokeMethod(obj interface{}, methodName string, args []ast.Expr) (interface{}, error) {
+	v := reflect.ValueOf(obj)
+
+	// Try method on value first
+	method := v.MethodByName(methodName)
+	if !method.IsValid() {
+		// Try pointer method
+		if v.Kind() != reflect.Ptr && v.CanAddr() {
+			method = v.Addr().MethodByName(methodName)
+		}
+	}
+
+	if !method.IsValid() {
+		return nil, fmt.Errorf("method %s not found on type %T", methodName, obj)
+	}
+
+	// Evaluate arguments
+	var evaledArgs []interface{}
+	for _, arg := range args {
+		val, err := c.evalExpr(arg)
+		if err != nil {
+			return nil, err
+		}
+		evaledArgs = append(evaledArgs, val)
+	}
+
+	// Convert args to method parameter types
+	argValues, err := c.convertArgsToTypes(evaledArgs, method)
+	if err != nil {
+		return nil, err
+	}
+
+	// Call method
+	results := method.Call(argValues)
+
+	// Handle return values
+	return c.handleMethodReturns(results)
+}
+
+func (c *Context) convertArgsToTypes(args []interface{}, method reflect.Value) ([]reflect.Value, error) {
+	methodType := method.Type()
+	values := make([]reflect.Value, len(args))
+
+	for i, arg := range args {
+		paramType := methodType.In(i)
+		argValue := reflect.ValueOf(arg)
+
+		// Handle nil
+		if arg == nil {
+			values[i] = reflect.Zero(paramType)
+			continue
+		}
+
+		// Direct assignment
+		if argValue.Type().AssignableTo(paramType) {
+			values[i] = argValue
+			continue
+		}
+
+		// Conversion
+		if argValue.Type().ConvertibleTo(paramType) {
+			values[i] = argValue.Convert(paramType)
+			continue
+		}
+
+		// Special case: int64 -> int
+		if argValue.Kind() == reflect.Int64 && paramType.Kind() == reflect.Int {
+			values[i] = reflect.ValueOf(int(arg.(int64)))
+			continue
+		}
+
+		return nil, fmt.Errorf("cannot convert arg %d from %v to %v", i, argValue.Type(), paramType)
+	}
+
+	return values, nil
+}
+
+func (c *Context) handleMethodReturns(results []reflect.Value) (interface{}, error) {
+	if len(results) == 0 {
+		return nil, nil
+	}
+
+	// Check if last return is error
+	lastResult := results[len(results)-1]
+	errorType := reflect.TypeOf((*error)(nil)).Elem()
+
+	if lastResult.Type().Implements(errorType) {
+		var err error
+		if !lastResult.IsNil() {
+			err = lastResult.Interface().(error)
+		}
+
+		if len(results) == 1 {
+			// Only error return
+			return nil, err
+		}
+
+		if len(results) == 2 {
+			// (value, error) pattern - return as tuple
+			return []interface{}{results[0].Interface(), err}, nil
+		}
+
+		// Multiple values + error
+		tuple := make([]interface{}, len(results))
+		for i, r := range results {
+			tuple[i] = r.Interface()
+		}
+		return tuple, nil
+	}
+
+	// Single non-error return
+	if len(results) == 1 {
+		return results[0].Interface(), nil
+	}
+
+	// Multiple non-error returns
+	tuple := make([]interface{}, len(results))
+	for i, r := range results {
+		tuple[i] = r.Interface()
+	}
+	return tuple, nil
 }
 
 func (c *Context) handleGalaxyRedirect(args []ast.Expr) (interface{}, error) {
@@ -848,6 +971,10 @@ func (c *Context) GetRequest() (interface{}, bool) {
 func (c *Context) SetLocals(locals map[string]any) {
 	c.Locals = locals
 	c.Variables["Locals"] = locals
+	// Update Galaxy.Locals reference
+	if galaxy, ok := c.Variables["Galaxy"].(*GalaxyAPI); ok {
+		galaxy.Locals = locals
+	}
 }
 
 func (c *Context) GetLocals() map[string]any {

@@ -105,23 +105,16 @@ func (g *HandlerGenerator) functionName() string {
 func (g *HandlerGenerator) generateHandlerFunc(funcName, frontmatterCode string, imports []string) string {
 	template := escapeTemplate(g.Component.Template)
 	paramExtraction := g.generateParamExtraction()
-	routePath := g.getRoutePath()
-
-	usesLocals := strings.Contains(frontmatterCode, "locals[")
-	localsDecl := ""
-	if usesLocals {
-		localsDecl = "Locals := locals\n\t"
-	} else {
-		localsDecl = "_ = locals\n\t"
-	}
 
 	return fmt.Sprintf(`func %s(w http.ResponseWriter, r *http.Request, params map[string]string, locals map[string]interface{}) {
 	%s
+	_ = locals
 	
-	%s%s
+	%s
+	%s
 	
-	ctx := runtime.NewRenderContext()
-	ctx.RoutePath = %q
+	// Create executor context for template engine
+	ctx := executor.NewContext()
 	for k, v := range params {
 		ctx.Set(k, v)
 	}
@@ -131,17 +124,37 @@ func (g *HandlerGenerator) generateHandlerFunc(funcName, frontmatterCode string,
 	
 	%s
 	
-	html := runtime.RenderTemplate(ctx, template%s)
+	// Use Galaxy template engine for full directive support (galaxy:for, galaxy:if, etc.)
+	engine := template.NewEngine(ctx)
+	html, err := engine.Render(template%s, nil)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Template render error: %%v", err), http.StatusInternalServerError)
+		return
+	}
 	w.Write([]byte(html))
 }
 
 const template%s = %s
-`, funcName, paramExtraction, localsDecl, frontmatterCode, routePath, g.generateVarAssignments(), funcName, funcName, template)
+`, funcName, paramExtraction, frontmatterCode, g.generateUseStatements(), g.generateVarAssignments(), funcName, funcName, template)
 }
 
 func (g *HandlerGenerator) getRoutePath() string {
 	rel, _ := filepath.Rel(g.BaseDir, g.Route.FilePath)
 	return "pages/" + rel
+}
+
+func (g *HandlerGenerator) generateUseStatements() string {
+	varNames := g.extractVariableNames()
+	if len(varNames) == 0 {
+		return ""
+	}
+
+	var statements []string
+	for _, name := range varNames {
+		statements = append(statements, fmt.Sprintf("\t_ = %s", name))
+	}
+
+	return strings.Join(statements, "\n")
 }
 
 func (g *HandlerGenerator) generateVarAssignments() string {
@@ -161,18 +174,56 @@ func (g *HandlerGenerator) generateVarAssignments() string {
 func (g *HandlerGenerator) extractVariableNames() []string {
 	code := g.extractCode()
 
-	varRegex := regexp.MustCompile(`(?m)^[\t ]*var\s+(\w+)`)
-	matches := varRegex.FindAllStringSubmatch(code, -1)
-
 	seen := make(map[string]bool)
 	var vars []string
 
-	for _, match := range matches {
-		if len(match) > 1 {
-			varName := match[1]
-			if !seen[varName] && varName != "_" {
-				seen[varName] = true
-				vars = append(vars, varName)
+	// Process line by line - only extract from lines at column 0 (no indentation)
+	// This ensures we only get top-level declarations
+	lines := strings.Split(code, "\n")
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		// Skip empty lines, comments, and type declarations
+		if trimmed == "" || strings.HasPrefix(trimmed, "//") || strings.HasPrefix(trimmed, "type ") {
+			continue
+		}
+
+		// Only process lines that start at column 0 (no leading whitespace)
+		// This ensures we're at top level, not inside a block
+		if len(line) > 0 && (line[0] == ' ' || line[0] == '\t') {
+			continue
+		}
+
+		// Match var declarations: var name = ...
+		if strings.HasPrefix(trimmed, "var ") {
+			varRegex := regexp.MustCompile(`^var\s+(\w+)`)
+			if match := varRegex.FindStringSubmatch(trimmed); len(match) > 1 {
+				varName := match[1]
+				if !seen[varName] && varName != "_" {
+					seen[varName] = true
+					vars = append(vars, varName)
+				}
+			}
+			continue
+		}
+
+		// Match short declarations with := (but not if it's part of a control structure)
+		if strings.Contains(trimmed, ":=") && !strings.HasPrefix(trimmed, "if ") && !strings.HasPrefix(trimmed, "switch ") && !strings.HasPrefix(trimmed, "for ") {
+			// Extract the left side of :=
+			parts := strings.Split(trimmed, ":=")
+			if len(parts) >= 2 {
+				leftSide := strings.TrimSpace(parts[0])
+
+				// Handle comma-separated variables: a, b := ...
+				varNames := strings.Split(leftSide, ",")
+				for _, v := range varNames {
+					varName := strings.TrimSpace(v)
+					if !seen[varName] && varName != "_" {
+						seen[varName] = true
+						vars = append(vars, varName)
+					}
+				}
 			}
 		}
 	}
