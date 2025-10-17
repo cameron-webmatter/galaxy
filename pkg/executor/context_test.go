@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -515,5 +516,210 @@ func TestLogicalOperators(t *testing.T) {
 		if val, ok := ctx.Get("x"); !ok || val != tt.expected {
 			t.Errorf("For %s: expected %v, got %v", tt.name, tt.expected, val)
 		}
+	}
+}
+
+func TestSingleImportExtraction(t *testing.T) {
+	ctx := NewContext()
+
+	code := `import "database/sql"
+
+var x = "test"`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute with import failed: %v", err)
+	}
+
+	if val, ok := ctx.Get("x"); !ok || val != "test" {
+		t.Errorf("Expected x='test', got %v", val)
+	}
+}
+
+func TestMultipleImportExtraction(t *testing.T) {
+	ctx := NewContext()
+
+	code := `import "database/sql"
+import "fmt"
+
+var x = "test"`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute with imports failed: %v", err)
+	}
+
+	if val, ok := ctx.Get("x"); !ok || val != "test" {
+		t.Errorf("Expected x='test', got %v", val)
+	}
+}
+
+func TestGroupedImportExtraction(t *testing.T) {
+	ctx := NewContext()
+
+	code := `import (
+	"database/sql"
+	"fmt"
+)
+
+var x = "test"`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute with grouped imports failed: %v", err)
+	}
+
+	if val, ok := ctx.Get("x"); !ok || val != "test" {
+		t.Errorf("Expected x='test', got %v", val)
+	}
+}
+
+func TestAliasedImportExtraction(t *testing.T) {
+	ctx := NewContext()
+
+	code := `import db "database/sql"
+
+var x = "test"`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute with aliased import failed: %v", err)
+	}
+
+	if val, ok := ctx.Get("x"); !ok || val != "test" {
+		t.Errorf("Expected x='test', got %v", val)
+	}
+}
+
+func TestMixedImportsAndCode(t *testing.T) {
+	ctx := NewContext()
+
+	code := `import "fmt"
+
+var title = "Hello"
+
+import "database/sql"
+
+var count = 42`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute with mixed imports failed: %v", err)
+	}
+
+	if val, ok := ctx.Get("title"); !ok || val != "Hello" {
+		t.Errorf("Expected title='Hello', got %v", val)
+	}
+
+	if val, ok := ctx.Get("count"); !ok || val != int64(42) {
+		t.Errorf("Expected count=42, got %v", val)
+	}
+}
+
+func TestTypeAssertion(t *testing.T) {
+	ctx := NewContext()
+
+	code := `var x interface{} = "hello"
+var str = x.(string)`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute with type assertion failed: %v", err)
+	}
+
+	if val, ok := ctx.Get("str"); !ok || val != "hello" {
+		t.Errorf("Expected str='hello', got %v", val)
+	}
+}
+
+func TestPackageFuncCall(t *testing.T) {
+	ctx := NewContext()
+
+	ctx.RegisterPackageFunc("models", "GetUser", func(args ...interface{}) (interface{}, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("GetUser expects 1 argument")
+		}
+		id := args[0].(string)
+		return map[string]interface{}{"id": id, "name": "John"}, nil
+	})
+
+	code := `import "models"
+
+var user = models.GetUser("123")`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute with package func failed: %v", err)
+	}
+
+	val, ok := ctx.Get("user")
+	if !ok {
+		t.Fatal("Expected user to be set")
+	}
+
+	userMap, ok := val.(map[string]interface{})
+	if !ok {
+		t.Fatalf("Expected user to be map, got %T", val)
+	}
+
+	if userMap["id"] != "123" || userMap["name"] != "John" {
+		t.Errorf("Expected user={id:123, name:John}, got %v", userMap)
+	}
+}
+
+func TestGlobalFuncRegistry(t *testing.T) {
+	RegisterGlobalFunc("testpkg", "GetData", func(args ...interface{}) (interface{}, error) {
+		return "global data", nil
+	})
+
+	ctx := NewContext()
+
+	code := `import "testpkg"
+
+var data = testpkg.GetData()`
+
+	err := ctx.Execute(code)
+	if err != nil {
+		t.Fatalf("Execute with global func failed: %v", err)
+	}
+
+	val, ok := ctx.Get("data")
+	if !ok || val != "global data" {
+		t.Errorf("Expected data='global data', got %v", val)
+	}
+}
+
+func TestMultiValueAssignment(t *testing.T) {
+	ctx := NewContext()
+
+	ctx.RegisterPackageFunc("models", "GetUser", func(args ...interface{}) (interface{}, error) {
+		return map[string]interface{}{"id": "123"}, nil
+	})
+
+	code := `import "models"
+
+var user, err = models.GetUser("123")`
+
+	execErr := ctx.Execute(code)
+	if execErr != nil {
+		t.Fatalf("Execute failed: %v", execErr)
+	}
+
+	user, ok := ctx.Get("user")
+	if !ok {
+		t.Fatal("Expected user to be set")
+	}
+
+	if user == nil {
+		t.Error("Expected user to have value")
+	}
+
+	errVal, ok := ctx.Get("err")
+	if !ok {
+		t.Fatal("Expected err to be set")
+	}
+
+	if errVal != nil {
+		t.Error("Expected err to be nil")
 	}
 }

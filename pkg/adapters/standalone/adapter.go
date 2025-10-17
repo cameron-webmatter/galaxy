@@ -345,15 +345,21 @@ import (
 	"log"
 	"net/http"
 	"os"
+	{{if .HasLifecycle}}
 	"os/signal"
+	{{end}}
 	"path/filepath"
 	"strings"
+	{{if .HasLifecycle}}
 	"syscall"
+	{{end}}
 
 	"github.com/galaxy/galaxy/pkg/compiler"
 	"github.com/galaxy/galaxy/pkg/endpoints"
 	"github.com/galaxy/galaxy/pkg/executor"
+	{{if .HasLifecycle}}
 	"github.com/galaxy/galaxy/pkg/lifecycle"
+	{{end}}
 	"github.com/galaxy/galaxy/pkg/middleware"
 	"github.com/galaxy/galaxy/pkg/parser"
 	"github.com/galaxy/galaxy/pkg/router"
@@ -378,11 +384,6 @@ var (
 	baseDir      string
 	pagesDir     = "pages"
 	wasmManifest *wasm.WasmManifest
-	routeMap     = map[string]*routeInfo{
-		{{range .Routes}}
-		"{{.Pattern}}": {Pattern: "{{.Pattern}}", FilePath: "pages{{.RelPath}}", IsEndpoint: {{.IsEndpoint}}},
-		{{end}}
-	}
 	endpointHandlers = map[string]map[string]endpoints.HandlerFunc{
 		{{range .Endpoints}}
 		"{{.Pattern}}": {
@@ -394,12 +395,6 @@ var (
 	}
 )
 
-type routeInfo struct {
-	Pattern    string
-	FilePath   string
-	IsEndpoint bool
-}
-
 func main() {
 	exePath, err := os.Executable()
 	if err != nil {
@@ -407,6 +402,12 @@ func main() {
 	}
 	baseDir = filepath.Dir(exePath)
 	comp = compiler.NewComponentCompiler(baseDir)
+
+	rt = router.NewRouter(filepath.Join(baseDir, pagesDir))
+	if err := rt.Discover(); err != nil {
+		log.Fatalf("Route discovery failed: %v", err)
+	}
+	rt.Sort()
 
 	manifestPath := filepath.Join(baseDir, "_assets", "wasm-manifest.json")
 	wasmManifest, _ = wasm.LoadManifest(manifestPath)
@@ -471,14 +472,14 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	route, ok := routeMap[r.URL.Path]
-	if !ok {
+	route, params := rt.Match(r.URL.Path)
+	if route == nil {
 		http.NotFound(w, r)
 		return
 	}
 
 	mwCtx := middleware.NewContext(w, r)
-	mwCtx.Params = make(map[string]string)
+	mwCtx.Params = params
 
 	{{if .HasMiddleware}}
 	{{if .HasSequence}}
@@ -488,9 +489,9 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := chain.Execute(mwCtx, func(ctx *middleware.Context) error {
 		if route.IsEndpoint {
-			handleEndpoint(route, mwCtx)
+			handleEndpoint(route.Pattern, mwCtx)
 		} else {
-			handlePage(route, mwCtx)
+			handlePage(route.FilePath, mwCtx)
 		}
 		return nil
 	}); err != nil {
@@ -500,9 +501,9 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	{{else}}
 	if err := usermw.OnRequest(mwCtx, func() error {
 		if route.IsEndpoint {
-			handleEndpoint(route, mwCtx)
+			handleEndpoint(route.Pattern, mwCtx)
 		} else {
-			handlePage(route, mwCtx)
+			handlePage(route.FilePath, mwCtx)
 		}
 		return nil
 	}); err != nil {
@@ -512,15 +513,15 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	{{end}}
 	{{else}}
 	if route.IsEndpoint {
-		handleEndpoint(route, mwCtx)
+		handleEndpoint(route.Pattern, mwCtx)
 		return
 	}
-	handlePage(route, mwCtx)
+	handlePage(route.FilePath, mwCtx)
 	{{end}}
 }
 
-func handleEndpoint(route *routeInfo, mwCtx *middleware.Context) {
-	ep, ok := endpointHandlers[route.Pattern]
+func handleEndpoint(pattern string, mwCtx *middleware.Context) {
+	ep, ok := endpointHandlers[pattern]
 	if !ok {
 		http.Error(mwCtx.Response, "Endpoint not found", http.StatusNotFound)
 		return
@@ -542,8 +543,7 @@ func handleEndpoint(route *routeInfo, mwCtx *middleware.Context) {
 	}
 }
 
-func handlePage(route *routeInfo, mwCtx *middleware.Context) {
-	filePath := filepath.Join(baseDir, route.FilePath)
+func handlePage(filePath string, mwCtx *middleware.Context) {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		http.Error(mwCtx.Response, err.Error(), http.StatusInternalServerError)
@@ -574,6 +574,8 @@ func handlePage(route *routeInfo, mwCtx *middleware.Context) {
 	reqCtx := ssr.NewRequestContext(mwCtx.Request, mwCtx.Params)
 	ctx.SetRequest(reqCtx)
 	ctx.SetLocals(mwCtx.Locals)
+
+	ctx.SetParams(mwCtx.Params)
 
 	for k, v := range mwCtx.Params {
 		ctx.Set(k, v)
@@ -612,7 +614,7 @@ func handlePage(route *routeInfo, mwCtx *middleware.Context) {
 	}
 
 	if wasmManifest != nil {
-		pageAssets, ok := wasmManifest.Assets[route.FilePath]
+		pageAssets, ok := wasmManifest.Assets[filePath]
 		if ok && len(pageAssets.WasmModules) > 0 {
 			wasmExecTag := "<script src=\"/wasm_exec.js\"></script>"
 			rendered = strings.Replace(rendered, "</body>", wasmExecTag+"\n</body>", 1)

@@ -8,7 +8,21 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 )
+
+type PackageFunc func(args ...interface{}) (interface{}, error)
+
+var (
+	globalFuncs      = make(map[string]PackageFunc)
+	globalFuncsMutex sync.RWMutex
+)
+
+func RegisterGlobalFunc(pkg, name string, fn PackageFunc) {
+	globalFuncsMutex.Lock()
+	defer globalFuncsMutex.Unlock()
+	globalFuncs[pkg+"."+name] = fn
+}
 
 type Context struct {
 	Variables      map[string]interface{}
@@ -19,10 +33,13 @@ type Context struct {
 	RedirectURL    string
 	RedirectStatus int
 	ShouldRedirect bool
+	PackageFuncs   map[string]PackageFunc
 }
 
 type GalaxyAPI struct {
-	ctx *Context
+	ctx    *Context
+	Params map[string]interface{}
+	Locals map[string]interface{}
 }
 
 func (g *GalaxyAPI) Redirect(url string, status int) {
@@ -33,20 +50,76 @@ func (g *GalaxyAPI) Redirect(url string, status int) {
 
 func NewContext() *Context {
 	ctx := &Context{
-		Variables: make(map[string]interface{}),
-		Props:     make(map[string]interface{}),
-		Slots:     make(map[string]string),
-		Request:   nil,
-		Locals:    make(map[string]any),
+		Variables:    make(map[string]interface{}),
+		Props:        make(map[string]interface{}),
+		Slots:        make(map[string]string),
+		Request:      nil,
+		Locals:       make(map[string]any),
+		PackageFuncs: make(map[string]PackageFunc),
 	}
-	ctx.Variables["Galaxy"] = &GalaxyAPI{ctx: ctx}
+
+	globalFuncsMutex.RLock()
+	for k, v := range globalFuncs {
+		ctx.PackageFuncs[k] = v
+	}
+	globalFuncsMutex.RUnlock()
+
+	galaxyAPI := &GalaxyAPI{
+		ctx:    ctx,
+		Params: make(map[string]interface{}),
+		Locals: ctx.Locals,
+	}
+	ctx.Variables["Galaxy"] = galaxyAPI
 	return ctx
+}
+
+func (c *Context) RegisterPackageFunc(pkg, name string, fn PackageFunc) {
+	key := pkg + "." + name
+	c.PackageFuncs[key] = fn
+}
+
+func ExtractImports(code string) (imports string, rest string) {
+	return extractImports(code)
+}
+
+func extractImports(code string) (imports string, rest string) {
+	lines := strings.Split(code, "\n")
+	var importLines []string
+	var codeLines []string
+	inImportBlock := false
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		if strings.HasPrefix(trimmed, "import (") {
+			inImportBlock = true
+			importLines = append(importLines, line)
+		} else if inImportBlock {
+			importLines = append(importLines, line)
+			if strings.Contains(trimmed, ")") {
+				inImportBlock = false
+			}
+		} else if strings.HasPrefix(trimmed, "import ") {
+			importLines = append(importLines, line)
+		} else {
+			codeLines = append(codeLines, line)
+		}
+	}
+
+	if len(importLines) > 0 {
+		imports = strings.Join(importLines, "\n") + "\n"
+	}
+	rest = strings.Join(codeLines, "\n")
+	return
 }
 
 func (c *Context) Execute(code string) error {
 	fset := token.NewFileSet()
 
-	wrappedCode := "package main\nfunc init() {\n" + code + "\n}"
+	imports, codeWithoutImports := extractImports(code)
+	wrappedCode := "package main\n" + imports + "func init() {\n" + codeWithoutImports + "\n}"
+
+	fmt.Printf("DEBUG Execute: wrapped code:\n%s\n", wrappedCode)
 
 	node, err := parser.ParseFile(fset, "", wrappedCode, parser.AllErrors)
 	if err != nil {
@@ -153,6 +226,35 @@ func (c *Context) executeAssignStmt(stmt *ast.AssignStmt) error {
 		return fmt.Errorf("unsupported assignment operator: %v", stmt.Tok)
 	}
 
+	if len(stmt.Lhs) == 2 && len(stmt.Rhs) == 1 {
+		if ident1, ok := stmt.Lhs[0].(*ast.Ident); ok {
+			if ident2, ok := stmt.Lhs[1].(*ast.Ident); ok {
+				result, err := c.evalExpr(stmt.Rhs[0])
+				if err != nil {
+					return err
+				}
+
+				fmt.Printf("DEBUG executeAssignStmt: %s, %s := ... result type=%T, value=%v\n",
+					ident1.Name, ident2.Name, result, result)
+
+				// Check if result is a multi-value tuple
+				if resultSlice, ok := result.([]interface{}); ok && len(resultSlice) == 2 {
+					fmt.Printf("DEBUG: Unpacking tuple - %s=%v (%T), %s=%v (%T)\n",
+						ident1.Name, resultSlice[0], resultSlice[0],
+						ident2.Name, resultSlice[1], resultSlice[1])
+					c.Variables[ident1.Name] = resultSlice[0]
+					c.Variables[ident2.Name] = resultSlice[1]
+				} else {
+					fmt.Printf("DEBUG: Single value - %s=%v (%T), %s=nil\n",
+						ident1.Name, result, result, ident2.Name)
+					c.Variables[ident1.Name] = result
+					c.Variables[ident2.Name] = nil
+				}
+				return nil
+			}
+		}
+	}
+
 	for i, lhs := range stmt.Lhs {
 		if i >= len(stmt.Rhs) {
 			break
@@ -172,6 +274,31 @@ func (c *Context) executeAssignStmt(stmt *ast.AssignStmt) error {
 }
 
 func (c *Context) processVarSpec(spec *ast.ValueSpec) error {
+	if len(spec.Names) == 2 && len(spec.Values) == 1 {
+		result, err := c.evalExpr(spec.Values[0])
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("DEBUG processVarSpec: result type=%T, value=%v\n", result, result)
+
+		// Check if result is a multi-value tuple (slice with 2 elements)
+		if resultSlice, ok := result.([]interface{}); ok && len(resultSlice) == 2 {
+			fmt.Printf("DEBUG: Storing %s=%v (%T), %s=%v (%T)\n",
+				spec.Names[0].Name, resultSlice[0], resultSlice[0],
+				spec.Names[1].Name, resultSlice[1], resultSlice[1])
+			c.Variables[spec.Names[0].Name] = resultSlice[0]
+			c.Variables[spec.Names[1].Name] = resultSlice[1]
+		} else {
+			// Single value, second is error placeholder
+			fmt.Printf("DEBUG: Storing %s=%v (%T), %s=nil\n",
+				spec.Names[0].Name, result, result, spec.Names[1].Name)
+			c.Variables[spec.Names[0].Name] = result
+			c.Variables[spec.Names[1].Name] = nil
+		}
+		return nil
+	}
+
 	for i, name := range spec.Names {
 		if i < len(spec.Values) {
 			value, err := c.evalExpr(spec.Values[i])
@@ -214,6 +341,10 @@ func (c *Context) evalExpr(expr ast.Expr) (interface{}, error) {
 		return c.evalCompositeLit(e)
 	case *ast.ParenExpr:
 		return c.evalExpr(e.X)
+	case *ast.IndexExpr:
+		return c.evalIndexExpr(e)
+	case *ast.TypeAssertExpr:
+		return c.evalTypeAssertExpr(e)
 	default:
 		return nil, fmt.Errorf("unsupported expression type: %T", expr)
 	}
@@ -310,6 +441,10 @@ func (c *Context) evalSelectorExpr(expr *ast.SelectorExpr) (interface{}, error) 
 		return nil, err
 	}
 
+	if x == nil {
+		return nil, nil
+	}
+
 	if m, ok := x.(map[string]interface{}); ok {
 		return m[expr.Sel.Name], nil
 	}
@@ -338,6 +473,50 @@ func (c *Context) evalSelectorExpr(expr *ast.SelectorExpr) (interface{}, error) 
 	return nil, fmt.Errorf("cannot select field %s from type %T", expr.Sel.Name, x)
 }
 
+func (c *Context) evalIndexExpr(expr *ast.IndexExpr) (interface{}, error) {
+	x, err := c.evalExpr(expr.X)
+	if err != nil {
+		return nil, err
+	}
+
+	index, err := c.evalExpr(expr.Index)
+	if err != nil {
+		return nil, err
+	}
+
+	if m, ok := x.(map[string]interface{}); ok {
+		if key, ok := index.(string); ok {
+			return m[key], nil
+		}
+	}
+
+	if m, ok := x.(map[string]any); ok {
+		if key, ok := index.(string); ok {
+			return m[key], nil
+		}
+	}
+
+	v := reflect.ValueOf(x)
+	if v.Kind() == reflect.Slice || v.Kind() == reflect.Array {
+		if idx, ok := index.(int64); ok {
+			if int(idx) >= 0 && int(idx) < v.Len() {
+				return v.Index(int(idx)).Interface(), nil
+			}
+			return nil, fmt.Errorf("index out of bounds")
+		}
+	}
+
+	return nil, fmt.Errorf("invalid index operation on type %T", x)
+}
+
+func (c *Context) evalTypeAssertExpr(expr *ast.TypeAssertExpr) (interface{}, error) {
+	x, err := c.evalExpr(expr.X)
+	if err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
 func (c *Context) evalCallExpr(expr *ast.CallExpr) (interface{}, error) {
 	if sel, ok := expr.Fun.(*ast.SelectorExpr); ok {
 		if ident, ok := sel.X.(*ast.Ident); ok && ident.Name == "Galaxy" {
@@ -345,6 +524,29 @@ func (c *Context) evalCallExpr(expr *ast.CallExpr) (interface{}, error) {
 				return c.handleGalaxyRedirect(expr.Args)
 			}
 		}
+
+		pkgName, err := c.evalExpr(sel.X)
+		if err == nil && pkgName != nil {
+			return nil, nil
+		}
+
+		if ident, ok := sel.X.(*ast.Ident); ok {
+			key := ident.Name + "." + sel.Sel.Name
+			if fn, exists := c.PackageFuncs[key]; exists {
+				var args []interface{}
+				for _, argExpr := range expr.Args {
+					arg, err := c.evalExpr(argExpr)
+					if err != nil {
+						return nil, err
+					}
+					args = append(args, arg)
+				}
+				result, fnErr := fn(args...)
+				// Return as tuple for multi-value assignment (value, error)
+				return []interface{}{result, fnErr}, nil
+			}
+		}
+		return nil, nil
 	}
 
 	if ident, ok := expr.Fun.(*ast.Ident); ok {
@@ -363,7 +565,7 @@ func (c *Context) evalCallExpr(expr *ast.CallExpr) (interface{}, error) {
 			}
 		}
 	}
-	return nil, fmt.Errorf("unsupported function call")
+	return nil, nil
 }
 
 func (c *Context) handleGalaxyRedirect(args []ast.Expr) (interface{}, error) {
@@ -655,6 +857,22 @@ func (c *Context) GetLocals() map[string]any {
 func (c *Context) GetProp(name string) (interface{}, bool) {
 	val, ok := c.Props[name]
 	return val, ok
+}
+
+func (c *Context) SetParams(params map[string]string) {
+	if galaxy, ok := c.Variables["Galaxy"].(*GalaxyAPI); ok {
+		galaxy.Params = make(map[string]interface{})
+		for k, v := range params {
+			galaxy.Params[k] = v
+		}
+	}
+}
+
+func (c *Context) GetParams() map[string]interface{} {
+	if galaxy, ok := c.Variables["Galaxy"].(*GalaxyAPI); ok {
+		return galaxy.Params
+	}
+	return make(map[string]interface{})
 }
 
 func (c *Context) String() string {

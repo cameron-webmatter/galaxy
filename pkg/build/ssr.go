@@ -8,8 +8,7 @@ import (
 	"strings"
 
 	"github.com/galaxy/galaxy/internal/assets"
-	"github.com/galaxy/galaxy/pkg/adapters"
-	"github.com/galaxy/galaxy/pkg/adapters/standalone"
+	"github.com/galaxy/galaxy/pkg/codegen"
 	"github.com/galaxy/galaxy/pkg/config"
 	"github.com/galaxy/galaxy/pkg/parser"
 	"github.com/galaxy/galaxy/pkg/plugins"
@@ -116,34 +115,13 @@ func (b *SSRBuilder) Build() error {
 }
 
 func (b *SSRBuilder) generateServerCode(serverDir string) error {
-	var adapter adapters.Adapter
-
-	switch b.Config.Adapter.Name {
-	case config.AdapterStandalone:
-		adapter = standalone.New()
-	default:
-		return fmt.Errorf("unsupported adapter: %s", b.Config.Adapter.Name)
+	moduleName, err := detectModuleName()
+	if err != nil {
+		moduleName = "generated-server"
 	}
 
-	routes := make([]adapters.RouteInfo, len(b.Router.Routes))
-	for i, route := range b.Router.Routes {
-		routes[i] = adapters.RouteInfo{
-			Pattern:    route.Pattern,
-			FilePath:   route.FilePath,
-			IsEndpoint: route.IsEndpoint,
-		}
-	}
-
-	cfg := &adapters.BuildConfig{
-		Config:    b.Config,
-		ServerDir: serverDir,
-		OutDir:    b.OutDir,
-		PagesDir:  b.PagesDir,
-		PublicDir: b.PublicDir,
-		Routes:    routes,
-	}
-
-	return adapter.Build(cfg)
+	codegenBuilder := codegen.NewCodegenBuilder(b.Router.Routes, b.PagesDir, b.OutDir, moduleName)
+	return codegenBuilder.Build()
 }
 
 func (b *SSRBuilder) copyPublicAssets() error {
@@ -186,8 +164,24 @@ func (b *SSRBuilder) copyPublicAssets() error {
 }
 
 func (b *SSRBuilder) compileServer(serverDir string) error {
-	fmt.Println("  ✓ Server compiled")
 	return nil
+}
+
+func detectModuleName() (string, error) {
+	data, err := os.ReadFile("go.mod")
+	if err != nil {
+		return "", err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "module ") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "module")), nil
+		}
+	}
+
+	return "", fmt.Errorf("module name not found")
 }
 
 func (b *SSRBuilder) precompileWasmScripts() error {

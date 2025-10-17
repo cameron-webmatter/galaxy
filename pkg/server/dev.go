@@ -277,6 +277,8 @@ func (s *DevServer) handlePage(route *router.Route, mwCtx *middleware.Context, p
 	ctx.SetRequest(reqCtx)
 	ctx.SetLocals(mwCtx.Locals)
 
+	ctx.SetParams(params)
+
 	for k, v := range params {
 		ctx.Set(k, v)
 	}

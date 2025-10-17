@@ -2,6 +2,7 @@ package template
 
 import (
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -491,10 +492,29 @@ func (e *Engine) renderForDirective(template string) string {
 		arrayName := parts[2]
 
 		if val, ok := e.ctx.Get(arrayName); ok {
-			if arr, ok := val.([]interface{}); ok {
+			var items []interface{}
+
+			switch v := val.(type) {
+			case []interface{}:
+				items = v
+			case []string:
+				items = make([]interface{}, len(v))
+				for i, s := range v {
+					items[i] = s
+				}
+			case []int:
+				items = make([]interface{}, len(v))
+				for i, n := range v {
+					items[i] = n
+				}
+			default:
+				return fmt.Sprintf("<%s %s>%s</%s>", tag, attrs, content, tag)
+			}
+
+			if len(items) > 0 {
 				var result strings.Builder
 
-				for _, item := range arr {
+				for _, item := range items {
 					oldVal, hadOld := e.ctx.Get(itemVar)
 					e.ctx.Set(itemVar, item)
 
@@ -718,8 +738,10 @@ func (e *Engine) evaluateExpression(expr string) (string, bool) {
 	varName := parts[0]
 	val, ok := e.ctx.Get(varName)
 	if !ok {
+		fmt.Printf("DEBUG: Variable '%s' not found in context\n", varName)
 		return "", false
 	}
+	fmt.Printf("DEBUG: Found variable '%s' with type %T\n", varName, val)
 
 	methodCall := parts[1]
 	if strings.HasSuffix(methodCall, "()") {
@@ -750,6 +772,18 @@ func (e *Engine) evaluateExpression(expr string) (string, bool) {
 			property := parts[1]
 			if propVal, ok := m[property]; ok {
 				return fmt.Sprintf("%v", propVal), true
+			}
+		}
+
+		// Try reflection for struct fields
+		v := reflect.ValueOf(val)
+		if v.Kind() == reflect.Ptr {
+			v = v.Elem()
+		}
+		if v.Kind() == reflect.Struct {
+			field := v.FieldByName(parts[1])
+			if field.IsValid() {
+				return fmt.Sprintf("%v", field.Interface()), true
 			}
 		}
 	}

@@ -6,8 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/galaxy/galaxy/pkg/adapters"
-	"github.com/galaxy/galaxy/pkg/adapters/standalone"
+	"github.com/galaxy/galaxy/pkg/codegen"
 	"github.com/galaxy/galaxy/pkg/config"
 	"github.com/galaxy/galaxy/pkg/router"
 )
@@ -61,11 +60,15 @@ func (b *HybridBuilder) Build() error {
 		}
 	}
 
-	for _, route := range staticRoutes {
-		if route.Type == router.RouteStatic && !route.IsEndpoint {
-			if err := b.SSGBuilder.buildStaticRoute(route); err != nil {
-				return fmt.Errorf("build static route %s: %w", route.Pattern, err)
-			}
+	if len(staticRoutes) > 0 {
+		moduleName, err := detectModuleName()
+		if err != nil {
+			moduleName = "generated-hybrid-ssg"
+		}
+
+		ssgCodegen := codegen.NewSSGCodegenBuilder(staticRoutes, b.PagesDir, b.OutDir, moduleName)
+		if err := ssgCodegen.Build(); err != nil {
+			return fmt.Errorf("ssg codegen: %w", err)
 		}
 	}
 
@@ -120,25 +123,11 @@ func (b *HybridBuilder) shouldPrerender(route *router.Route) bool {
 }
 
 func (b *HybridBuilder) generateServerForDynamicRoutes(serverDir string, routes []*router.Route) error {
-	adapter := standalone.New()
-
-	routeInfos := make([]adapters.RouteInfo, len(routes))
-	for i, route := range routes {
-		routeInfos[i] = adapters.RouteInfo{
-			Pattern:    route.Pattern,
-			FilePath:   route.FilePath,
-			IsEndpoint: route.IsEndpoint,
-		}
+	moduleName, err := detectModuleName()
+	if err != nil {
+		moduleName = "generated-hybrid"
 	}
 
-	cfg := &adapters.BuildConfig{
-		Config:    b.Config,
-		ServerDir: serverDir,
-		OutDir:    b.OutDir,
-		PagesDir:  b.PagesDir,
-		PublicDir: b.PublicDir,
-		Routes:    routeInfos,
-	}
-
-	return adapter.Build(cfg)
+	codegenBuilder := codegen.NewCodegenBuilder(routes, b.PagesDir, b.OutDir, moduleName)
+	return codegenBuilder.Build()
 }

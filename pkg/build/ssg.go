@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/galaxy/galaxy/internal/assets"
+	"github.com/galaxy/galaxy/pkg/codegen"
 	"github.com/galaxy/galaxy/pkg/compiler"
 	"github.com/galaxy/galaxy/pkg/config"
 	"github.com/galaxy/galaxy/pkg/executor"
@@ -83,12 +84,14 @@ func (b *SSGBuilder) Build() error {
 		return fmt.Errorf("create output: %w", err)
 	}
 
-	for _, route := range b.Router.Routes {
-		if route.Type == router.RouteStatic {
-			if err := b.buildStaticRoute(route); err != nil {
-				return fmt.Errorf("build %s: %w", route.Pattern, err)
-			}
-		}
+	moduleName, err := detectModuleName()
+	if err != nil {
+		moduleName = "generated-ssg"
+	}
+
+	codegenBuilder := codegen.NewSSGCodegenBuilder(b.Router.Routes, b.PagesDir, b.OutDir, moduleName)
+	if err := codegenBuilder.Build(); err != nil {
+		return fmt.Errorf("codegen build: %w", err)
 	}
 
 	if err := b.copyPublicAssets(); err != nil {
