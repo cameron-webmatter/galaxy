@@ -7,6 +7,10 @@ _assets/
 galaxy
 editors/vscode/client/out/
 
+# Generated build and cache directories
+examples/**/dist/
+examples/**/.galaxy/
+
 # Markdown files except essential OSS files
 *.md
 !README.md
