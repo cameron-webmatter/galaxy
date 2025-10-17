@@ -52,7 +52,7 @@ button {
 
 <script>
 import "fmt"
-import "github.com/galaxy/galaxy/pkg/wasmdom"
+import "github.com/cameron-webmatter/galaxy/pkg/wasmdom"
 
 count := 0
 btn := wasmdom.GetElementById("increment")

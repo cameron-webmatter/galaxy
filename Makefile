@@ -1,7 +1,7 @@
 .PHONY: install watch build test clean
 
 VERSION := $(shell cat VERSION)
-LDFLAGS := -X github.com/galaxy/galaxy/pkg/cli.Version=$(VERSION)
+LDFLAGS := -X github.com/cameron-webmatter/galaxy/pkg/cli.Version=$(VERSION)
 
 install:
 	go install -ldflags "$(LDFLAGS)" ./cmd/galaxy

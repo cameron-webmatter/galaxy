@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/galaxy/galaxy/pkg/middleware"
+	"github.com/cameron-webmatter/galaxy/pkg/middleware"
 )
 
 func LoggingMiddleware(ctx *middleware.Context, next func() error) error {

@@ -9,7 +9,7 @@ return {
   },
   docs = {
     description = [[
-https://github.com/galaxy/galaxy
+https://github.com/cameron-webmatter/galaxy
 
 Language server for GXC (Galaxy Component) files.
 Requires the `galaxy` CLI to be installed and available in PATH.
